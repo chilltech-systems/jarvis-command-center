@@ -1,0 +1,679 @@
+{
+  "name": "CHILL TECH Automation Command Center",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "# CHILL TECH AUTOMATION COMMAND CENTER\n\nCentral error handling, pulse monitoring, missed-trigger awareness, Slack alerts, AI diagnosis, and HUD-ready event logging.\n\nDEPLOYMENT STATUS: CONNECTED\n- Slack alerts: `automation-errors` - ENABLED\n- AI diagnosis: ENABLED\n- Pulse webhook: `/webhook/jarvis-automation-pulse` - ENABLED\n- Google Sheets event log: `CHILL TECH AUTOMATION Event Log` / `Events` - ENABLED\n- Google Sheets credential: `CHILL TECH DRIVE`\n- Daily pulse summary at 6:00 PM America/Chicago - ENABLED\n- 15-minute missed-trigger checks - STAGED / DISABLED until heartbeat integrations exist\n\nMANUAL HEARTBEAT STEP:\nAdd heartbeat/success pulse events before enabling the 15-minute health-check trigger. Otherwise workflows with no pulse history will create false missed-trigger alerts.",
+        "height": 500,
+        "width": 680,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1480,
+        -760
+      ],
+      "id": "1d5d0796-3ef2-4f3f-b254-1ff4b64c7771",
+      "name": "Jarvis Setup"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1400,
+        -120
+      ],
+      "id": "28cf887f-84f1-42d4-91b6-14a0f27d2505",
+      "name": "Jarvis Error Trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first()?.json || {};\nconst execution = raw.execution || {};\nconst trigger = raw.trigger || {};\nconst workflow = raw.workflow || {};\nconst error = execution.error || trigger.error || {};\nconst cause = error.cause || {};\nconst text = [error.message, cause.message, error.stack, cause.stack].filter(Boolean).join('\\n');\nconst lower = text.toLowerCase();\nconst category = /credential|unauthorized|forbidden|401|403|api key|oauth/.test(lower) ? 'Credential/API issue' : /timeout|timed out|rate limit|429/.test(lower) ? 'Timeout/rate limit' : /json|syntax|referenceerror|typeerror|code node/.test(lower) ? 'Code issue' : /missing|required|invalid input|undefined|null|no items/.test(lower) ? 'Data/input issue' : /network|econn|service unavailable|502|503|504/.test(lower) ? 'External service issue' : /node|workflow|branch|connection/.test(lower) ? 'Workflow logic issue' : 'Unknown';\nconst severity = /credential|unauthorized|forbidden|401|403|out of memory|database|activation/.test(lower) ? 'critical' : /timeout|rate limit|429|service unavailable|502|503|504/.test(lower) ? 'high' : 'medium';\nconst redact = (value) => {\n  const blocked = /password|token|secret|authorization|cookie|api.?key|credential/i;\n  const walk = (v, depth = 0) => {\n    if (depth > 4) return '[TRUNCATED_DEPTH]';\n    if (Array.isArray(v)) return v.slice(0, 10).map(x => walk(x, depth + 1));\n    if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).slice(0, 40).map(([k, x]) => [k, blocked.test(k) ? '[REDACTED]' : walk(x, depth + 1)]));\n    if (typeof v === 'string') return v.length > 1000 ? v.slice(0, 1000) + '...[TRUNCATED]' : v;\n    return v;\n  };\n  return walk(value);\n};\nconst failedNode = execution.lastNodeExecuted || error.node?.name || trigger.error?.node?.name || '';\nconst now = new Date().toISOString();\nconst fallbackFix = category === 'Credential/API issue' ? 'Verify the affected credential, scopes, and API access.' : category === 'Timeout/rate limit' ? 'Retry with backoff and review timeout or rate-limit handling.' : category === 'Code issue' ? 'Review the failed node code and validate incoming data before parsing.' : category === 'Data/input issue' ? 'Inspect the triggering record and add input validation or defaults.' : category === 'External service issue' ? 'Check service status and add retry/fallback handling.' : 'Inspect the failed execution and upstream node data.';\nreturn [{json:{schema_version:'1.0',id:`jarvis-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,timestamp:now,source_workflow:workflow.name || 'Unknown workflow',workflow_id:workflow.id || '',execution_id:execution.id || '',event_type:'execution_error',status:'failed',severity,failed_node:failedNode,error_message:error.message || cause.message || 'Unknown execution error',error_stack:error.stack || cause.stack || '',ai_diagnosis:`Deterministic fallback classification: ${category}`,diagnosis_category:category,suggested_fix:fallbackFix,urgency:severity === 'critical' ? 'immediate' : severity === 'high' ? 'today' : 'review',business_area:'automation-operations',records_processed:0,summary:`${workflow.name || 'Unknown workflow'} failed${failedNode ? ` at ${failedNode}` : ''}.`,important_outputs_json:'{}',safe_context_json:JSON.stringify(redact(raw.context || error.context || {})),execution_url:execution.url || '',codex_review_recommended:['Code issue','Workflow logic issue','Unknown'].includes(category),resolved_status:'open',expected_frequency:'',last_seen_at:'',minutes_since_last_seen:'',missed_trigger_risk:'',recommended_action:fallbackFix,raw_error_for_ai:text.slice(0,6000)}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1160,
+        -120
+      ],
+      "id": "2bbd3e3c-3886-4d14-9647-905c3b267ac1",
+      "name": "Normalize and Redact Error"
+    },
+    {
+      "parameters": {
+        "text": "=Workflow: {{ $json.source_workflow }}\nFailed node: {{ $json.failed_node }}\nError: {{ $json.error_message }}\nStack/details: {{ $json.raw_error_for_ai }}\nDeterministic category: {{ $json.diagnosis_category }}\nDeterministic suggested fix: {{ $json.suggested_fix }}",
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"diagnosis_category\": {\"type\":\"string\",\"enum\":[\"Code issue\",\"Data/input issue\",\"Credential/API issue\",\"External service issue\",\"Timeout/rate limit\",\"Workflow logic issue\",\"Unknown\"]},\n    \"plain_english_diagnosis\": {\"type\":\"string\"},\n    \"likely_root_cause\": {\"type\":\"string\"},\n    \"suggested_fix\": {\"type\":\"string\"},\n    \"likely_node_or_file\": {\"type\":\"string\"},\n    \"urgency\": {\"type\":\"string\",\"enum\":[\"immediate\",\"today\",\"review\",\"low\"]},\n    \"codex_review_recommended\": {\"type\":\"boolean\"}\n  },\n  \"required\": [\"diagnosis_category\",\"plain_english_diagnosis\",\"likely_root_cause\",\"suggested_fix\",\"likely_node_or_file\",\"urgency\",\"codex_review_recommended\"]\n}",
+        "options": {
+          "systemPromptTemplate": "You are Jarvis, a production automation incident analyst. Diagnose the supplied n8n failure using only the evidence provided. Be concise, operational, and explicit about uncertainty. Never invent credentials, data, node output, or a successful repair. Classify the issue, explain the likely root cause, recommend the next practical fix, identify the likely node or workflow JSON area, set urgency, and recommend Codex review when code or workflow structure should be inspected."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "typeVersion": 1.2,
+      "position": [
+        -900,
+        -120
+      ],
+      "id": "0a7c63aa-5114-42c1-9523-ea1b17e2434f",
+      "name": "AI Error Diagnosis",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini",
+          "cachedResultName": "gpt-4.1-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -900,
+        100
+      ],
+      "id": "8a491262-1d9c-42cf-9917-6d0432c1f56e",
+      "name": "Jarvis OpenAI Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "PLACEHOLDER_OPENAI_CREDENTIAL_ID",
+          "name": "PLACEHOLDER - Jarvis OpenAI"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const fallback = $('Normalize and Redact Error').first().json;\nconst current = $input.first()?.json || {};\nconst ai = current.output || current;\nconst usable = ai && typeof ai === 'object' && ai.plain_english_diagnosis;\nconst event = {...fallback};\nif (usable) {\n  event.diagnosis_category = ai.diagnosis_category || event.diagnosis_category;\n  event.ai_diagnosis = `${ai.plain_english_diagnosis}${ai.likely_root_cause ? ` Root cause: ${ai.likely_root_cause}` : ''}`;\n  event.suggested_fix = ai.suggested_fix || event.suggested_fix;\n  event.urgency = ai.urgency || event.urgency;\n  event.codex_review_recommended = Boolean(ai.codex_review_recommended);\n  event.recommended_action = ai.suggested_fix || event.recommended_action;\n  event.likely_node_or_file = ai.likely_node_or_file || event.failed_node;\n} else {\n  event.ai_diagnosis = `${event.ai_diagnosis}. AI diagnosis unavailable; fallback retained.`;\n  event.likely_node_or_file = event.failed_node;\n}\ndelete event.raw_error_for_ai;\nreturn [{json:event}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -640,
+        -120
+      ],
+      "id": "5d7508c6-8aca-46d4-a55c-f4c53d9dfe06",
+      "name": "Apply AI Diagnosis"
+    },
+    {
+      "parameters": {
+        "jsCode": "const e = $input.first().json;\nconst icon = e.severity === 'critical' ? '🚨' : e.severity === 'high' ? '⚠️' : '🛠️';\nconst execution = e.execution_url ? `<${e.execution_url}|Open failed execution>` : 'Execution link unavailable';\nconst text = `${icon} *JARVIS SYSTEM ALERT*\\n\\n*Workflow:* ${e.source_workflow}\\n*Node:* ${e.failed_node || 'Unknown'}\\n*Status:* Failed\\n*Severity:* ${String(e.severity).toUpperCase()}\\n*Category:* ${e.diagnosis_category}\\n\\n*Diagnosis:*\\n${e.ai_diagnosis}\\n\\n*Suggested Fix:*\\n${e.suggested_fix}\\n\\n*Codex Review:* ${e.codex_review_recommended ? 'Recommended' : 'Not currently required'}\\n*Execution:* ${execution}`;\nreturn [{json:{...e,slack_message:text}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -380,
+        -120
+      ],
+      "id": "90d81d5d-49a9-42cc-9a57-39cc69799a33",
+      "name": "Format Error Alert"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "jarvis-automation-pulse",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1400,
+        420
+      ],
+      "id": "e5f502de-3ec6-4740-a684-fbd54aeb6809",
+      "name": "Jarvis Automation Pulse Webhook",
+      "webhookId": "jarvis-automation-pulse"
+    },
+    {
+      "parameters": {
+        "jsCode": "const incoming = $input.first()?.json || {};\nconst body = incoming.body && typeof incoming.body === 'object' ? incoming.body : incoming;\nconst allowed = ['execution_success','execution_warning','data_processed','slack_message_sent','report_generated','ai_correction_made','manual_review_needed','missed_trigger_detected','workflow_health_check','heartbeat'];\nconst source = String(body.source_workflow || '').trim();\nconst requestedType = String(body.event_type || '').trim();\nconst valid = Boolean(source && allowed.includes(requestedType));\nconst eventType = valid ? requestedType : 'execution_warning';\nconst severity = valid ? (body.severity || (eventType === 'manual_review_needed' || eventType === 'execution_warning' ? 'warning' : 'normal')) : 'warning';\nconst status = valid ? (body.status || (eventType === 'execution_warning' || eventType === 'manual_review_needed' ? 'warning' : 'success')) : 'rejected';\nconst now = new Date().toISOString();\nconst event = {schema_version:'1.0',id:body.id || `jarvis-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,timestamp:body.timestamp && body.timestamp !== 'auto' ? body.timestamp : now,source_workflow:source || 'Unknown pulse sender',workflow_id:body.workflow_id || '',execution_id:body.execution_id || '',event_type:eventType,status,severity,failed_node:body.failed_node || '',error_message:valid ? (body.error_message || '') : `Invalid pulse payload. Required: source_workflow and supported event_type. Received event_type: ${requestedType || '(missing)'}`,error_stack:'',ai_diagnosis:'',diagnosis_category:'',suggested_fix:valid ? (body.suggested_fix || '') : 'Correct the pulse payload using docs/jarvis-event-schema.md.',urgency:eventType === 'manual_review_needed' ? 'today' : 'low',business_area:body.business_area || 'unclassified',records_processed:Number(body.records_processed || 0),summary:body.summary || (valid ? `${source} reported ${eventType}.` : 'Jarvis rejected an invalid pulse payload.'),important_outputs_json:JSON.stringify(body.important_outputs || {}),safe_context_json:JSON.stringify(body.context || {}),execution_url:body.execution_url || '',codex_review_recommended:Boolean(body.codex_review_recommended),resolved_status:body.resolved_status || 'open',expected_frequency:body.expected_frequency || '',last_seen_at:body.last_seen_at || now,minutes_since_last_seen:body.minutes_since_last_seen ?? 0,missed_trigger_risk:body.missed_trigger_risk || 'none',recommended_action:body.recommended_action || (valid ? 'No action required.' : 'Fix the sending workflow pulse payload.'),pulse_valid:valid};\nreturn [{json:event}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1160,
+        420
+      ],
+      "id": "72c91ebc-7653-45ca-b67c-07aba01370b8",
+      "name": "Validate and Normalize Pulse"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { accepted: $json.pulse_valid, event_id: $json.id, status: $json.status, message: $json.pulse_valid ? 'Jarvis pulse accepted.' : $json.error_message } }}",
+        "options": {
+          "responseCode": 202
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -900,
+        580
+      ],
+      "id": "2e287bde-c6e5-4ba4-8ffc-f8784eb0b787",
+      "name": "Respond to Pulse"
+    },
+    {
+      "parameters": {
+        "jsCode": "const e = $input.first().json;\nconst shouldAlert = ['execution_warning','manual_review_needed','missed_trigger_detected'].includes(e.event_type) || ['warning','high','critical'].includes(e.severity);\nconst icon = e.event_type === 'manual_review_needed' ? '👤' : e.event_type === 'missed_trigger_detected' ? '⏱️' : '⚠️';\nconst text = `${icon} *JARVIS AUTOMATION NOTICE*\\n\\n*Workflow:* ${e.source_workflow}\\n*Event:* ${e.event_type}\\n*Business Area:* ${e.business_area}\\n*Severity:* ${String(e.severity).toUpperCase()}\\n\\n*Summary:*\\n${e.summary}\\n\\n*Recommended Action:*\\n${e.recommended_action}`;\nreturn [{json:{...e,should_alert:shouldAlert,slack_message:text}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -900,
+        420
+      ],
+      "id": "3d667101-8258-4d28-a7ef-d9b15faeb4a1",
+      "name": "Format Pulse Notice"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a041531c-f28c-4cef-adb3-36d91a633854",
+              "leftValue": "={{ $json.should_alert }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -640,
+        420
+      ],
+      "id": "8bebdf47-ae15-41c2-bfde-1d156c4dbd26",
+      "name": "Pulse Requires Alert"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "*/15 * * * *"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1400,
+        980
+      ],
+      "id": "fc5b9b08-b21f-422e-a6cb-f2a4cf41de18",
+      "name": "Every 15 Minutes Health Check",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "18j4N3n_1TxAK5y5yY0KCqujZfj-AjNkLqX1J3lF-5Os",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Events",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -1160,
+        980
+      ],
+      "id": "f86b76d8-45bd-4a85-bee6-0633b85f6a0c",
+      "name": "Read Event Log for Health",
+      "disabled": true,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "aTjOXJWLUkr2WiT4",
+          "name": "CHILL TECH DRIVE"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const registry = [\n{name:'Brenham',business_area:'chick-fil-a-operations',mode:'scheduled-and-event',expected_minutes:1440,expected_frequency:'daily'},\n{name:'Catering Receipt Reader',business_area:'catering',mode:'event-driven',expected_minutes:null,expected_frequency:'event-driven'},\n{name:'Catering Reminders',business_area:'catering',mode:'scheduled',expected_minutes:1440,expected_frequency:'daily'},\n{name:'IDAD Automations',business_area:'idad-reporting',mode:'scheduled',expected_minutes:180,expected_frequency:'multiple times daily'},\n{name:'IDAD Overflow',business_area:'idad-reporting',mode:'scheduled',expected_minutes:1440,expected_frequency:'daily'},\n{name:'IDAD Intelligence',business_area:'athena-intelligence',mode:'event-driven',expected_minutes:null,expected_frequency:'event-driven'},\n{name:'Athena Messaging',business_area:'athena-messaging',mode:'scheduled-and-event',expected_minutes:1440,expected_frequency:'daily'},\n{name:'Monthly Sales Reporting',business_area:'reporting',mode:'scheduled',expected_minutes:null,expected_frequency:'Needs Review'},\n{name:'PDF Generation and Distribution',business_area:'reporting',mode:'event-driven',expected_minutes:null,expected_frequency:'event-driven'},\n{name:'Slack Message Automations',business_area:'communications',mode:'scheduled-and-event',expected_minutes:1440,expected_frequency:'daily'},\n{name:'Google Sheets Reporting Automations',business_area:'reporting',mode:'scheduled-and-event',expected_minutes:1440,expected_frequency:'daily'}\n];\nconst rows = $input.all().map(i => i.json);\nconst now = Date.now();\nconst parse = v => { const n = Date.parse(v || ''); return Number.isFinite(n) ? n : 0; };\nconst events = [];\nfor (const cfg of registry) {\n  if (!cfg.expected_minutes) continue;\n  const matching = rows.filter(r => String(r.source_workflow || '').toLowerCase().includes(cfg.name.toLowerCase()) || String(r.summary || '').toLowerCase().includes(cfg.name.toLowerCase()));\n  const last = matching.sort((a,b) => parse(b.timestamp) - parse(a.timestamp))[0];\n  const minutes = last ? Math.floor((now - parse(last.timestamp))/60000) : null;\n  const risk = minutes === null ? 'unknown' : minutes > cfg.expected_minutes * 2 ? 'critical' : minutes > cfg.expected_minutes ? 'high' : 'none';\n  if (risk === 'none') continue;\n  const summary = minutes === null ? `${cfg.name} has no recorded Jarvis heartbeat.` : `${cfg.name} was last seen ${minutes} minutes ago; expected ${cfg.expected_frequency}.`;\n  events.push({json:{schema_version:'1.0',id:`jarvis-health-${Date.now()}-${events.length}`,timestamp:new Date().toISOString(),source_workflow:cfg.name,workflow_id:'',execution_id:'',event_type:'missed_trigger_detected',status:'warning',severity:risk === 'critical' ? 'critical' : 'warning',failed_node:'',error_message:'',error_stack:'',ai_diagnosis:'',diagnosis_category:'Workflow logic issue',suggested_fix:'Verify the workflow is active, inspect its latest execution, and confirm it sends heartbeat pulses.',urgency:risk === 'critical' ? 'immediate' : 'today',business_area:cfg.business_area,records_processed:0,summary,important_outputs_json:'{}',safe_context_json:'{}',execution_url:'',codex_review_recommended:false,resolved_status:'open',expected_frequency:cfg.expected_frequency,last_seen_at:last?.timestamp || '',minutes_since_last_seen:minutes ?? '',missed_trigger_risk:risk,recommended_action:'Verify workflow activation, schedule, credentials, and pulse integration.',slack_message:`⏱️ *JARVIS MISSED TRIGGER ALERT*\\n\\n*Workflow:* ${cfg.name}\\n*Risk:* ${risk.toUpperCase()}\\n*Expected:* ${cfg.expected_frequency}\\n*Last Seen:* ${last?.timestamp || 'No heartbeat recorded'}\\n\\n*Recommended Action:* Verify workflow activation, schedule, credentials, and pulse integration.`}});\n}\nreturn events;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -900,
+        980
+      ],
+      "id": "87c668fe-03ac-4c43-ac14-9031cd1620dd",
+      "name": "Detect Missed Heartbeats"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 18 * * *"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1400,
+        1460
+      ],
+      "id": "6087d191-43e4-4c65-a0d5-063ed28290a2",
+      "name": "Daily Pulse Summary at 6 PM"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "18j4N3n_1TxAK5y5yY0KCqujZfj-AjNkLqX1J3lF-5Os",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Events",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -1160,
+        1460
+      ],
+      "id": "fbc36ed9-db81-4857-a3b3-1cc428b84fa8",
+      "name": "Read Event Log for Daily Summary",
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "aTjOXJWLUkr2WiT4",
+          "name": "CHILL TECH DRIVE"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(i => i.json);\nconst tz = 'America/Chicago';\nconst today = new Date().toLocaleDateString('en-CA',{timeZone:tz});\nconst dayRows = rows.filter(r => { const d = new Date(r.timestamp || 0); return !Number.isNaN(d.valueOf()) && d.toLocaleDateString('en-CA',{timeZone:tz}) === today; });\nconst count = type => dayRows.filter(r => r.event_type === type).length;\nconst failures = dayRows.filter(r => r.status === 'failed' || r.event_type === 'execution_error').length;\nconst warnings = dayRows.filter(r => r.status === 'warning' || r.severity === 'warning' || r.severity === 'high').length;\nconst successes = dayRows.filter(r => r.status === 'success').length;\nconst records = dayRows.reduce((n,r) => n + Number(r.records_processed || 0), 0);\nconst workflows = [...new Set(dayRows.map(r => r.source_workflow).filter(Boolean))];\nconst areas = [...new Set(dayRows.map(r => r.business_area).filter(Boolean))];\nconst manual = count('manual_review_needed');\nconst corrections = count('ai_correction_made');\nconst missed = count('missed_trigger_detected');\nconst health = failures > 0 ? Math.max(0,100-failures*15-warnings*5-missed*10) : Math.max(0,100-warnings*5-missed*10);\nconst text = `🤖 *JARVIS DAILY AUTOMATION PULSE*\\n_${today} | America/Chicago_\\n\\n*System Health Score:* ${health}/100\\n*Workflows Active:* ${workflows.length}\\n*Successful Events:* ${successes}\\n*Failed Executions:* ${failures}\\n*Warnings:* ${warnings}\\n*Records Processed:* ${records}\\n*Business Areas Active:* ${areas.length}\\n*Manual Reviews Needed:* ${manual}\\n*AI Corrections Made:* ${corrections}\\n*Missed Trigger Alerts:* ${missed}\\n\\n*Active Systems:*\\n${workflows.length ? workflows.slice(0,12).map(w=>`• ${w}`).join('\\n') : '• No pulse events recorded today'}\\n\\nJarvis is monitoring the automation ecosystem.`;\nreturn [{json:{schema_version:'1.0',id:`jarvis-daily-${Date.now()}`,timestamp:new Date().toISOString(),source_workflow:'Jarvis n8n Command Center',workflow_id:'',execution_id:'',event_type:'daily_pulse_summary',status:'success',severity:health < 70 ? 'high' : health < 90 ? 'warning' : 'normal',failed_node:'',error_message:'',error_stack:'',ai_diagnosis:'',diagnosis_category:'',suggested_fix:'',urgency:'low',business_area:'automation-operations',records_processed:records,summary:`Daily pulse: ${successes} successful events, ${failures} failures, ${warnings} warnings, health score ${health}/100.`,important_outputs_json:JSON.stringify({health_score:health,workflows_active:workflows.length,successful_events:successes,failed_executions:failures,warnings,records_processed:records,business_areas_active:areas,manual_reviews_needed:manual,ai_corrections_made:corrections,missed_trigger_alerts:missed}),safe_context_json:'{}',execution_url:'',codex_review_recommended:failures>0,resolved_status:'open',expected_frequency:'daily',last_seen_at:'',minutes_since_last_seen:'',missed_trigger_risk:'',recommended_action:failures>0?'Review today’s failed executions.':'No action required.',slack_message:text}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -900,
+        1460
+      ],
+      "id": "c7652c5a-91f5-46fa-8df9-e90bfcbf0aa0",
+      "name": "Build Daily Pulse Summary"
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "PLACEHOLDER_JARVIS_SLACK_CHANNEL_ID",
+          "mode": "id"
+        },
+        "text": "={{ $json.slack_message }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        180,
+        300
+      ],
+      "id": "5798e3f5-e494-41f8-a5fb-c4428875030e",
+      "name": "Send Jarvis Slack Alert",
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "slackApi": {
+          "id": "PLACEHOLDER_SLACK_CREDENTIAL_ID",
+          "name": "PLACEHOLDER - Jarvis Slack"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const required = ['schema_version','id','timestamp','source_workflow','workflow_id','execution_id','event_type','status','severity','failed_node','error_message','error_stack','ai_diagnosis','diagnosis_category','suggested_fix','urgency','business_area','records_processed','summary','important_outputs_json','safe_context_json','execution_url','codex_review_recommended','resolved_status','expected_frequency','last_seen_at','minutes_since_last_seen','missed_trigger_risk','recommended_action','likely_node_or_file'];\nreturn $input.all().map(item => ({json:Object.fromEntries(required.map(key => [key, item.json[key] ?? '']))}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -60,
+        40
+      ],
+      "id": "272ce81d-eb4d-46e0-8cac-060b554b59e4",
+      "name": "Prepare Event Log Row"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "18j4N3n_1TxAK5y5yY0KCqujZfj-AjNkLqX1J3lF-5Os",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Events",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        180,
+        40
+      ],
+      "id": "bbd80c91-9786-4df3-b728-61b4278170ae",
+      "name": "Append to Jarvis Event Log",
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "aTjOXJWLUkr2WiT4",
+          "name": "CHILL TECH DRIVE"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Workflow Registry and Missed Triggers\n\nThe `Detect Missed Heartbeats` Code node contains the initial configurable registry based on repository systems.\n\nRules:\n- Scheduled workflows can generate missed-trigger alerts.\n- Event-driven workflows are documented but are not marked missed merely for inactivity.\n- Unknown schedules stay `Needs Review` until the owner confirms expected frequency.\n- Existing workflows must send heartbeat or success pulses for reliable detection.",
+        "height": 360,
+        "width": 560,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1480,
+        840
+      ],
+      "id": "18a6aa18-e68c-4d27-97d0-d44fd79f77ab",
+      "name": "Missed Trigger Design"
+    },
+    {
+      "parameters": {
+        "content": "## Connector Failure Safety\n\nSlack, Google Sheets, OpenAI diagnosis, and log-read nodes use `continueRegularOutput` so a connector outage does not create a recursive monitoring failure.\n\nThe Error Trigger only runs for automatic executions. Test it by assigning Jarvis to a small automatic test workflow and intentionally failing that workflow.",
+        "height": 300,
+        "width": 520,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -120,
+        -500
+      ],
+      "id": "79cd971b-18d7-4168-94bb-a547ea3fd709",
+      "name": "Failure Safety Notes"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Jarvis Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Normalize and Redact Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize and Redact Error": {
+      "main": [
+        [
+          {
+            "node": "AI Error Diagnosis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jarvis OpenAI Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Error Diagnosis",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Error Diagnosis": {
+      "main": [
+        [
+          {
+            "node": "Apply AI Diagnosis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apply AI Diagnosis": {
+      "main": [
+        [
+          {
+            "node": "Format Error Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Error Alert": {
+      "main": [
+        [
+          {
+            "node": "Prepare Event Log Row",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Jarvis Slack Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jarvis Automation Pulse Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate and Normalize Pulse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate and Normalize Pulse": {
+      "main": [
+        [
+          {
+            "node": "Respond to Pulse",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Format Pulse Notice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Pulse Notice": {
+      "main": [
+        [
+          {
+            "node": "Prepare Event Log Row",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Pulse Requires Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pulse Requires Alert": {
+      "main": [
+        [
+          {
+            "node": "Send Jarvis Slack Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Every 15 Minutes Health Check": {
+      "main": [
+        [
+          {
+            "node": "Read Event Log for Health",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Event Log for Health": {
+      "main": [
+        [
+          {
+            "node": "Detect Missed Heartbeats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detect Missed Heartbeats": {
+      "main": [
+        [
+          {
+            "node": "Prepare Event Log Row",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Jarvis Slack Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily Pulse Summary at 6 PM": {
+      "main": [
+        [
+          {
+            "node": "Read Event Log for Daily Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Event Log for Daily Summary": {
+      "main": [
+        [
+          {
+            "node": "Build Daily Pulse Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Daily Pulse Summary": {
+      "main": [
+        [
+          {
+            "node": "Prepare Event Log Row",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Jarvis Slack Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Event Log Row": {
+      "main": [
+        [
+          {
+            "node": "Append to Jarvis Event Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Chicago",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "8631302f-19d8-4f60-a1aa-4c4af726cb89",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "id": "JARVIS_COMMAND_CENTER_PLACEHOLDER",
+  "tags": []
+}

@@ -1,0 +1,350 @@
+{
+  "name": "Morning Standup Delivery",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "# MORNING STANDUP DELIVERY\n\nReceives the structured Codex standup payload, creates or updates actionable Todoist tasks, and DMs the full summary to Cody in a second Slack workspace.\n\nTODOIST COMPATIBILITY:\nThe installed native n8n Todoist node calls a deprecated Todoist endpoint and returns HTTP 410. This workflow therefore uses HTTP Request nodes against Todoist's supported `/api/v1` endpoints.\n\nSETUP BEFORE ACTIVATION:\n1. Import this workflow into n8n.\n2. Create a generic Header Auth credential with header name `Authorization` and value `Bearer YOUR_TODOIST_API_TOKEN`.\n3. Select that credential in `Get Active Todoist Tasks`, `Update Todoist Task`, and `Create Todoist Task`.\n4. Select the Slack credential for the second workspace in `Send Standup DM`.\n5. Replace `PLACEHOLDER_SECOND_WORKSPACE_USER_ID` in `Send Standup DM` with Cody's user ID from the second workspace.\n6. Activate the workflow and copy the production webhook URL into MORNING_STANDUP_DELIVERY_WEBHOOK_URL for the Codex sender script.\n\nThe workflow imports inactive and stores no secrets.",
+        "height": 500,
+        "width": 560
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -880,
+        -280
+      ],
+      "id": "f3e946ce-f7c3-49e4-ad41-4cb2b88abf4b",
+      "name": "Setup Notes"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "morning-standup-delivery",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -880,
+        360
+      ],
+      "id": "1371fb1f-2ed2-466f-9b34-6e97493dbb7b",
+      "name": "Standup Delivery Webhook",
+      "webhookId": "morning-standup-delivery"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst body = input.body && typeof input.body === 'object' ? input.body : input;\nconst now = new Date().toISOString();\n\nfunction cleanString(value) {\n  return String(value ?? '').trim();\n}\n\nfunction slug(value) {\n  return cleanString(value)\n    .toLowerCase()\n    .replace(/[^a-z0-9]+/g, '-')\n    .replace(/^-+|-+$/g, '')\n    .slice(0, 80);\n}\n\nfunction buildSourceKey(task, index) {\n  const source = task.source || {};\n  const channelId = cleanString(source.channel_id || source.channelId);\n  const threadTs = cleanString(source.thread_ts || source.threadTs || source.message_ts || source.messageTs);\n  if (channelId && threadTs) return `${channelId}:${threadTs}`;\n  const title = slug(task.title || task.content || task.summary || `task-${index + 1}`);\n  const date = cleanString(body.window_end || body.generated_at || now).slice(0, 10) || now.slice(0, 10);\n  return `${date}:${title}`;\n}\n\nfunction toSlackMrkdwn(summary) {\n  const headingEmoji = new Map([\n    ['Key Updates', ':mega:'],\n    ['Decisions / Confirmed Direction', ':compass:'],\n    ['Completed Work', ':white_check_mark:'],\n    ['Blockers / Risks', ':warning:'],\n    ['Awaiting Cody Response / Action', ':point_right:'],\n    ['Source Channels', ':satellite:'],\n    ['Coverage Limitations', ':mag:'],\n    ['Standup Script', ':speech_balloon:'],\n    ['Yesterday', ':white_check_mark:'],\n    ['Today', ':dart:'],\n    ['Blockers', ':warning:']\n  ]);\n\n  let formatted = summary\n    .replace(/\\r\\n/g, '\\n')\n    .replace(/^\\-\\s+/gm, '• ')\n    .replace(/`([^`]+)`/g, '$1')\n    .replace(/\\*\\*([^*\\n]+)\\*\\*/g, '*$1*');\n\n  formatted = formatted.replace(/^\\*([^*\\n]+)\\*$/gm, (_, title) => {\n    const cleanTitle = cleanString(title);\n    const emoji = headingEmoji.get(cleanTitle);\n    return emoji ? `${emoji} *${cleanTitle}*` : `*${cleanTitle}*`;\n  });\n\n  formatted = formatted.replace(/(^|\\s)(#[a-z0-9][a-z0-9_-]*)/g, (_, prefix, channel) => {\n    return `${prefix}*${channel}*`;\n  });\n\n  return formatted.replace(/\\n{3,}/g, '\\n\\n').trim();\n}\n\nconst rawTasks = Array.isArray(body.todoist_tasks) ? body.todoist_tasks : [];\nconst todoistTasks = rawTasks\n  .map((task, index) => {\n    const title = cleanString(task.title || task.content || task.summary);\n    if (!title) return null;\n    const source = task.source || {};\n    const sourceKey = cleanString(task.source_key || task.sourceKey || buildSourceKey(task, index));\n    const dueDate = cleanString(task.due_date || task.dueDate || now.slice(0, 10));\n    const sourceChannel = cleanString(source.channel_name || source.channelName || source.channel_id || source.channelId);\n    const permalink = cleanString(source.permalink || task.permalink);\n    const summary = cleanString(task.summary || task.description || 'Action item from the morning standup.');\n    const blocker = cleanString(task.blocker || task.dependency || task.blockers);\n    const description = [\n      summary,\n      blocker ? `Blocker/Dependency: ${blocker}` : '',\n      sourceChannel ? `Source Channel: ${sourceChannel}` : '',\n      permalink ? `Slack Link: ${permalink}` : '',\n      `Source Key: ${sourceKey}`\n    ].filter(Boolean).join('\\n');\n    return {\n      title,\n      summary,\n      description,\n      due_date: dueDate,\n      priority: Number(task.priority || 1),\n      source_key: sourceKey,\n      source_channel: sourceChannel,\n      permalink\n    };\n  })\n  .filter(Boolean);\n\nconst standupSummary = cleanString(body.standup_summary || body.summary || body.message);\nconst errors = [];\nif (!standupSummary) errors.push('Missing standup_summary.');\nif (!Array.isArray(body.todoist_tasks)) errors.push('Missing todoist_tasks array; use [] when there are no actionable tasks.');\nif (!Array.isArray(body.excluded_channels) || !body.excluded_channels.map(cleanString).includes('general')) errors.push('excluded_channels must include general.');\n\nreturn [{\n  json: {\n    accepted: errors.length === 0,\n    errors,\n    generated_at: cleanString(body.generated_at || now),\n    window_start: cleanString(body.window_start || ''),\n    window_end: cleanString(body.window_end || ''),\n    source_workspace: cleanString(body.source_workspace || 'Chick-fil-A Brenham'),\n    excluded_channels: Array.isArray(body.excluded_channels) ? body.excluded_channels : ['general'],\n    standup_summary: standupSummary,\n    standup_summary_slack: toSlackMrkdwn(standupSummary),\n    todoist_tasks: todoistTasks,\n    received_at: now\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -620,
+        360
+      ],
+      "id": "9d958cd3-bb6d-40b5-bd89-83f2fc3533b3",
+      "name": "Normalize Standup Payload"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { accepted: $json.accepted, errors: $json.errors, received_at: $json.received_at, todoist_task_count: $json.todoist_tasks.length } }}",
+        "options": {
+          "responseCode": 202
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -340,
+        160
+      ],
+      "id": "b4c3934f-5867-4e2f-b369-54767f111e51",
+      "name": "Respond to Codex"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "2bc6372e-4b4b-4286-a356-f11c67eae7c8",
+              "leftValue": "={{ $json.accepted }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -340,
+        440
+      ],
+      "id": "1397c390-fbc1-4bba-a51b-a73424261ca1",
+      "name": "Valid Standup Payload?"
+    },
+    {
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "url": "https://api.todoist.com/api/v1/tasks?limit=200",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -80,
+        360
+      ],
+      "id": "3c529d50-4f1f-4388-ac16-fd08eeae0e23",
+      "name": "Get Active Todoist Tasks",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "PLACEHOLDER_TODOIST_HEADER_AUTH_CREDENTIAL_ID",
+          "name": "PLACEHOLDER - Todoist API v1 Bearer Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const payload = $('Normalize Standup Payload').first().json;\nif (!payload.accepted || !payload.todoist_tasks.length) return [];\n\nconst responses = $input.all().map(item => item.json);\nconst existingTasks = responses.flatMap(response => {\n  if (Array.isArray(response)) return response;\n  if (Array.isArray(response.results)) return response.results;\n  return response?.id ? [response] : [];\n});\n\nreturn payload.todoist_tasks.map(task => {\n  const marker = `Source Key: ${task.source_key}`;\n  const existing = existingTasks.find(candidate =>\n    String(candidate.description || '').includes(marker) || String(candidate.content || '').includes(task.source_key)\n  );\n  return {\n    json: {\n      ...task,\n      existing_id: existing?.id || '',\n      has_existing_task: Boolean(existing?.id)\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        180,
+        360
+      ],
+      "id": "10b5358f-6a36-49ed-b663-b75fa07cb10f",
+      "name": "Prepare Todoist Upserts"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "277cb541-9474-4d54-90f6-11898d10c1e1",
+              "leftValue": "={{ $json.has_existing_task }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        360
+      ],
+      "id": "353a16e6-da0e-4d3c-b079-5a23ad2edfa2",
+      "name": "Existing Todoist Task?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://api.todoist.com/api/v1/tasks/' + $json.existing_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { content: $json.title, description: $json.description, priority: $json.priority, due_date: $json.due_date } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        260
+      ],
+      "id": "e652be93-8d0e-46fa-ac2e-c69b453bdf0c",
+      "name": "Update Todoist Task",
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "PLACEHOLDER_TODOIST_HEADER_AUTH_CREDENTIAL_ID",
+          "name": "PLACEHOLDER - Todoist API v1 Bearer Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.todoist.com/api/v1/tasks",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { content: $json.title, description: $json.description, priority: $json.priority, due_date: $json.due_date } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        460
+      ],
+      "id": "fc07a368-91a8-43e8-95ae-e6050beb5267",
+      "name": "Create Todoist Task",
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "PLACEHOLDER_TODOIST_HEADER_AUTH_CREDENTIAL_ID",
+          "name": "PLACEHOLDER - Todoist API v1 Bearer Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "PLACEHOLDER_SECOND_WORKSPACE_USER_ID",
+          "mode": "id"
+        },
+        "text": "={{ $json.standup_summary_slack || $json.standup_summary }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        -80,
+        600
+      ],
+      "id": "84fc5451-54af-4805-bb16-bf241ace6bba",
+      "name": "Send Standup DM",
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "slackApi": {
+          "id": "PLACEHOLDER_SECOND_SLACK_CREDENTIAL_ID",
+          "name": "PLACEHOLDER - Second Workspace Slack"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Standup Delivery Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Standup Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Standup Payload": {
+      "main": [
+        [
+          {
+            "node": "Respond to Codex",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Valid Standup Payload?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid Standup Payload?": {
+      "main": [
+        [
+          {
+            "node": "Get Active Todoist Tasks",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Standup DM",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Get Active Todoist Tasks": {
+      "main": [
+        [
+          {
+            "node": "Prepare Todoist Upserts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Todoist Upserts": {
+      "main": [
+        [
+          {
+            "node": "Existing Todoist Task?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Existing Todoist Task?": {
+      "main": [
+        [
+          {
+            "node": "Update Todoist Task",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Todoist Task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Chicago"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2026-06-07T00:00:00.000Z",
+  "versionId": "9f76870d-b0b7-45bc-8eb0-17fcfd16d67e",
+  "active": false
+}

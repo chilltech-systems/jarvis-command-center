@@ -1,0 +1,24 @@
+{
+  "generated_at": "2026-06-07T06:00:00-05:00",
+  "window_start": "2026-06-06T06:00:00-05:00",
+  "window_end": "2026-06-07T06:00:00-05:00",
+  "source_workspace": "Chick-fil-A Brenham",
+  "excluded_channels": ["general"],
+  "standup_summary": "**Morning Standup Briefing - June 7, 2026**\n\n**Needs Your Attention**\n- Investigate why shortage tracking only sent Destiny when multiple people were entered.\n\n**Suggested Standup Script**\n- **Yesterday:** Reviewed app and operations issues.\n- **Today:** Investigate shortage tracking and continue catering app work.\n- **Blockers:** Need original submission data or workflow execution logs.",
+  "todoist_tasks": [
+    {
+      "title": "Investigate shortage tracking only sending Destiny",
+      "summary": "Itzel entered multiple drawer shortages, but only Destiny appeared in the Slack report.",
+      "blocker": "May need source submission data or n8n execution logs.",
+      "due_string": "today",
+      "priority": 2,
+      "source": {
+        "channel_id": "C06JVBVMBPV",
+        "channel_name": "cash-managment",
+        "message_ts": "1780807991.680299",
+        "thread_ts": "1780807991.680299",
+        "permalink": "https://chick-fil-abrenham.slack.com/archives/C06JVBVMBPV/p1780807991680299"
+      }
+    }
+  ]
+}
