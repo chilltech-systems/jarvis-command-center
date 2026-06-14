@@ -1,0 +1,28 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { Activity, RadioTower } from "lucide-react";
+import "./globals.css";
+
+export const metadata: Metadata = {
+  title: "Jarvis Command Center",
+  description: "CHILL TECH automation operations HUD",
+};
+
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  return (
+    <html lang="en">
+      <body>
+        <div className="scanlines" />
+        <header className="topbar">
+          <Link href="/" className="brand">
+            <RadioTower size={20} />
+            <span>JARVIS</span>
+            <small>COMMAND CENTER</small>
+          </Link>
+          <div className="live-indicator"><Activity size={14} /> LIVE TELEMETRY</div>
+        </header>
+        {children}
+      </body>
+    </html>
+  );
+}

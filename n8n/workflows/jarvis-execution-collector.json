@@ -1,0 +1,292 @@
+{
+  "name": "Jarvis n8n Execution Collector",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "# JARVIS EXECUTION COLLECTOR\n\nRuns every five minutes and collects workflow inventory plus recent execution summaries from the n8n public API.\n\nMANUAL SETUP:\n1. Replace `PLACEHOLDER_N8N_API_BASE_URL` with the n8n public API base URL ending in `/api/v1`.\n2. Replace the placeholder n8n API key headers using a secure credential or expression.\n3. Apply the Supabase migration under `supabase/migrations/`.\n4. Replace `PLACEHOLDER_SUPABASE_URL` and service-role key headers using secure credentials.\n5. Test manually, confirm Supabase rows, then activate.\n\nNever commit real API or service-role keys.",
+        "height": 480,
+        "width": 620,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1060,
+        -520
+      ],
+      "id": "56b7eaf2-8592-4c19-a07a-3db9e997eb21",
+      "name": "Collector Setup"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "*/5 * * * *"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -980,
+        20
+      ],
+      "id": "6385195d-9055-4c19-9a57-a365074c7a75",
+      "name": "Every 5 Minutes"
+    },
+    {
+      "parameters": {
+        "url": "PLACEHOLDER_N8N_API_BASE_URL/workflows?limit=100",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-API-KEY",
+              "value": "PLACEHOLDER_N8N_API_KEY"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -740,
+        -80
+      ],
+      "id": "892037c4-89d8-401b-88d8-e87c9886f0fa",
+      "name": "Fetch Workflow Inventory",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "PLACEHOLDER_N8N_API_BASE_URL/executions?limit=100&includeData=false",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-API-KEY",
+              "value": "PLACEHOLDER_N8N_API_KEY"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -740,
+        120
+      ],
+      "id": "f5e65477-ce7e-40c5-b393-74d5e6b70f0a",
+      "name": "Fetch Recent Executions",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -500,
+        20
+      ],
+      "id": "2213bd0a-905c-42a5-b667-d9282b4b105f",
+      "name": "Wait for API Responses"
+    },
+    {
+      "parameters": {
+        "jsCode": "const workflowResponse = $('Fetch Workflow Inventory').first().json || {};\nconst executionResponse = $('Fetch Recent Executions').first().json || {};\nconst workflows = Array.isArray(workflowResponse.data) ? workflowResponse.data : [];\nconst executions = Array.isArray(executionResponse.data) ? executionResponse.data : [];\nconst now = new Date().toISOString();\nconst executionRows = executions.map(e => {\n  const started = Date.parse(e.startedAt || '');\n  const stopped = Date.parse(e.stoppedAt || '');\n  const duration = Number.isFinite(started) && Number.isFinite(stopped) ? Math.max(0, stopped - started) : null;\n  return {\n    execution_id: String(e.id),\n    workflow_id: String(e.workflowId),\n    status: e.status || 'unknown',\n    mode: e.mode || '',\n    finished: Boolean(e.finished),\n    started_at: e.startedAt,\n    stopped_at: e.stoppedAt || null,\n    duration_ms: duration,\n    wait_till: e.waitTill || null,\n    retry_of: e.retryOf || null,\n    retry_success_id: e.retrySuccessId || null,\n    execution_url: `PLACEHOLDER_N8N_EDITOR_BASE_URL/workflow/${e.workflowId}/executions/${e.id}`,\n    collected_at: now,\n    raw_summary: { finished: e.finished, status: e.status, mode: e.mode }\n  };\n});\nconst byWorkflow = new Map();\nfor (const e of executionRows) {\n  const current = byWorkflow.get(e.workflow_id) || {};\n  if (!current.last_execution_at || e.started_at > current.last_execution_at) current.last_execution_at = e.started_at;\n  if (e.status === 'success' && (!current.last_success_at || e.started_at > current.last_success_at)) current.last_success_at = e.started_at;\n  if (e.status === 'error' && (!current.last_error_at || e.started_at > current.last_error_at)) current.last_error_at = e.started_at;\n  byWorkflow.set(e.workflow_id, current);\n}\nconst workflowRows = workflows.map(w => {\n  const recent = byWorkflow.get(String(w.id)) || {};\n  return {\n    workflow_id: String(w.id),\n    name: w.name || `Workflow ${w.id}`,\n    active: Boolean(w.active),\n    error_workflow_id: w.settings?.errorWorkflow || null,\n    tags: w.tags || [],\n    last_execution_at: recent.last_execution_at || null,\n    last_success_at: recent.last_success_at || null,\n    last_error_at: recent.last_error_at || null,\n    current_health: !w.active ? 'inactive' : recent.last_error_at && (!recent.last_success_at || recent.last_error_at > recent.last_success_at) ? 'warning' : recent.last_success_at ? 'healthy' : 'unknown',\n    updated_at: now\n  };\n});\nreturn [{json:{workflow_rows:workflowRows,execution_rows:executionRows,next_cursor:executionResponse.nextCursor || null,collected_at:now,workflow_count:workflowRows.length,execution_count:executionRows.length}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -260,
+        20
+      ],
+      "id": "739a85e2-e407-4caf-aa28-ea66499db970",
+      "name": "Normalize Collector Batch"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "PLACEHOLDER_SUPABASE_URL/rest/v1/jarvis_workflows?on_conflict=workflow_id",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "PLACEHOLDER_SUPABASE_SERVICE_ROLE_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer PLACEHOLDER_SUPABASE_SERVICE_ROLE_KEY"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.workflow_rows }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        20,
+        -80
+      ],
+      "id": "ac19e667-32f8-4778-a20b-2df55eb28327",
+      "name": "Upsert Workflow Inventory",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "PLACEHOLDER_SUPABASE_URL/rest/v1/jarvis_executions?on_conflict=execution_id",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "PLACEHOLDER_SUPABASE_SERVICE_ROLE_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer PLACEHOLDER_SUPABASE_SERVICE_ROLE_KEY"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $('Normalize Collector Batch').first().json.execution_rows }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        20,
+        120
+      ],
+      "id": "a837b9ad-af07-4bd5-b38a-b3b23a643031",
+      "name": "Upsert Recent Executions",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "content": "## Collector Behavior\n\n- Uses the n8n public API summary endpoints only; full execution data is not requested.\n- Upserts by `workflow_id` and `execution_id`, so repeated five-minute polling is idempotent.\n- Keeps status and timestamps authoritative because n8n may report unusual `finished`/`status` combinations.\n- The first version collects the latest 100 executions each run. Cursor backfill can be added after the live pipeline is verified.",
+        "height": 340,
+        "width": 520,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -260,
+        -440
+      ],
+      "id": "5f07c7d9-91a3-432b-8dc1-811a176f165a",
+      "name": "Collector Design Notes"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Every 5 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Fetch Workflow Inventory",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Recent Executions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Workflow Inventory": {
+      "main": [
+        [
+          {
+            "node": "Wait for API Responses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Recent Executions": {
+      "main": [
+        [
+          {
+            "node": "Wait for API Responses",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Wait for API Responses": {
+      "main": [
+        [
+          {
+            "node": "Normalize Collector Batch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Collector Batch": {
+      "main": [
+        [
+          {
+            "node": "Upsert Workflow Inventory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert Workflow Inventory": {
+      "main": [
+        [
+          {
+            "node": "Upsert Recent Executions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Chicago",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "20fa652b-942b-477c-a7b8-60f84bd9984c",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "id": "JARVIS_EXECUTION_COLLECTOR_PLACEHOLDER",
+  "tags": []
+}

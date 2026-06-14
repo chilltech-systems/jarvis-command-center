@@ -10,3 +10,8 @@ build/
 coverage/
 *.log
 *.tmp
+.env*
+!.env.example
+.next/
+node_modules/
+.vercel/

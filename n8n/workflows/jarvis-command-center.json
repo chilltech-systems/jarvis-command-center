@@ -446,6 +446,33 @@
       ],
       "id": "79cd971b-18d7-4168-94bb-a547ea3fd709",
       "name": "Failure Safety Notes"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "PLACEHOLDER_SUPABASE_URL/rest/v1/rpc/ingest_jarvis_event",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { input_event: $json } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1980,
+        480
+      ],
+      "id": "ebd107e1-73b3-4a9f-915c-6c784b9c9ea0",
+      "name": "Append Event to Supabase",
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "PLACEHOLDER_SUPABASE_REST_AUTH_CREDENTIAL_ID",
+          "name": "Jarvis Supabase REST Auth"
+        }
+      },
+      "onError": "continueRegularOutput"
     }
   ],
   "pinData": {},
@@ -657,6 +684,11 @@
         [
           {
             "node": "Append to Jarvis Event Log",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Append Event to Supabase",
             "type": "main",
             "index": 0
           }
