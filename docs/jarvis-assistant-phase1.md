@@ -40,6 +40,11 @@ Command Center metrics from the existing protected Supabase view.
 Other initial tools have contracts, statuses, and permission gates ready for
 future integration.
 
+OpenAI reasoning uses the server-side Responses API only when no deterministic
+Jarvis tool matches the request. OpenAI never bypasses Jarvis authentication,
+tool permissions, approval gates, or execution handlers. Configure
+`OPENAI_API_KEY` and optional `OPENAI_MODEL` only in server-side environments.
+
 ## Memory Framework
 
 `jarvis_memory` stores structured, source-attributed records by owner, scope,

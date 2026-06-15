@@ -10,6 +10,7 @@ const assistantRoute = read("app/api/jarvis/assistant/route.ts");
 const approvalRoute = read("app/api/jarvis/approvals/route.ts");
 const tools = read("lib/jarvis/tool-registry.ts");
 const integrations = read("lib/jarvis/integrations.ts");
+const openai = read("lib/jarvis/openai.ts");
 const migration = read("supabase/migrations/20260615000100_jarvis_assistant_phase1.sql");
 
 for (const value of ["jarvis-orb", "assistant-panel", "localStorage", "approval-card", "Integration inventory"]) {
@@ -43,8 +44,21 @@ if (!integrations.includes("credentialEnvironmentKeys") || !integrations.include
   errors.push("credential discovery framework is incomplete");
 }
 
+for (const required of [
+  "https://api.openai.com/v1/responses",
+  "process.env.OPENAI_API_KEY",
+  "process.env.OPENAI_MODEL",
+  "Never claim an external action was completed",
+]) {
+  if (!openai.includes(required)) errors.push(`OpenAI reasoning handler is missing ${required}`);
+}
+
+if (!assistantRoute.includes("askOpenAI") || !assistantRoute.includes("openAIConfigured")) {
+  errors.push("assistant route is not connected to the OpenAI reasoning handler");
+}
+
 const obviousSecret = /(sk-[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{20,})/;
-for (const [label, content] of [["tools", tools], ["integrations", integrations], ["migration", migration]]) {
+for (const [label, content] of [["tools", tools], ["integrations", integrations], ["openai", openai], ["migration", migration]]) {
   if (obviousSecret.test(content)) errors.push(`${label} contains an obvious secret`);
 }
 

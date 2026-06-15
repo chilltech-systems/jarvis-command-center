@@ -3,6 +3,7 @@ import { requireJarvisAdmin } from "@/lib/jarvis/auth";
 import { discoverIntegrationCredentials } from "@/lib/jarvis/integrations";
 import { approvalForTool, toolCanRunWithoutApproval } from "@/lib/jarvis/permissions";
 import { findToolForMessage, JARVIS_TOOLS } from "@/lib/jarvis/tool-registry";
+import { askOpenAI, openAIConfigured } from "@/lib/jarvis/openai";
 import type { AssistantResponse } from "@/lib/jarvis/types";
 
 const MAX_MESSAGE_LENGTH = 4000;
@@ -38,6 +39,10 @@ export async function POST(request: Request) {
   const message = typeof body.message === "string" ? body.message.trim().slice(0, MAX_MESSAGE_LENGTH) : "";
   if (!message) return NextResponse.json({ error: "Message is required" }, { status: 400 });
 
+  const requestedConversationId = typeof body.conversationId === "string" ? body.conversationId : null;
+  const { data: conversationHistory } = requestedConversationId
+    ? await supabase.from("jarvis_messages").select("role, content").eq("conversation_id", requestedConversationId).order("created_at").limit(20)
+    : { data: [] };
   const tool = findToolForMessage(message);
   let response: AssistantResponse = {
     message: "I have recorded that request. Phase 1 is online, and I can route it once the matching capability is connected.",
@@ -72,9 +77,28 @@ export async function POST(request: Request) {
       message: `${tool.description} The Phase 1 tool contract is ready; the implementation handler is the next integration step.`,
       activity: `Jarvis routed request to ${tool.name}`,
     };
+  } else if (openAIConfigured()) {
+    try {
+      const modelResponse = await askOpenAI({
+        message,
+        history: conversationHistory ?? [],
+        tools: JARVIS_TOOLS,
+      });
+      if (modelResponse) {
+        response = {
+          message: modelResponse,
+          activity: "Jarvis answered with OpenAI reasoning",
+        };
+      }
+    } catch (error) {
+      console.error("Jarvis OpenAI request failed", error);
+      response = {
+        message: "My OpenAI reasoning connection encountered an error. The deterministic monitoring and approval systems remain online.",
+        activity: "Jarvis encountered an OpenAI reasoning error",
+      };
+    }
   }
 
-  const requestedConversationId = typeof body.conversationId === "string" ? body.conversationId : null;
   const { data: existingConversation } = requestedConversationId
     ? await supabase.from("jarvis_conversations").select("conversation_id").eq("conversation_id", requestedConversationId).maybeSingle()
     : { data: null };
