@@ -142,7 +142,7 @@ export function JarvisAssistant() {
     <>
       <button
         type="button"
-        className="jarvis-orb"
+        className={`jarvis-orb ${open ? "assistant-open" : ""}`}
         aria-label="Open Jarvis Assistant"
         suppressHydrationWarning
         style={{ left: position.x, top: position.y }}
