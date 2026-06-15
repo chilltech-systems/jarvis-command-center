@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "validate": "node scripts/validate-n8n-workflow-json.js && node scripts/validate-execution-collector.js && node scripts/validate-business-pulse-variants.js && node scripts/validate-hud-auth.js"
+    "validate": "node scripts/validate-n8n-workflow-json.js && node scripts/validate-execution-collector.js && node scripts/validate-business-pulse-variants.js && node scripts/validate-hud-auth.js && node scripts/validate-hud-timezone.js"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",

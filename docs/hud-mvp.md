@@ -50,6 +50,13 @@ sent to `/unauthorized` and cannot read HUD data.
 If Google sign-in fails, the callback sends the provider or code-exchange error
 back to `/login` for display. Verify the three URLs above before changing code.
 
+## Timezone
+
+Supabase stores execution and event timestamps as timezone-aware UTC values.
+The HUD converts every visible automation timestamp to `America/Chicago`,
+including the correct `CST` or `CDT` abbreviation based on daylight saving
+time. n8n schedules should also use the `America/Chicago` workflow timezone.
+
 ## Local Development
 
 ```bash

@@ -57,6 +57,8 @@ h1 { margin: 7px 0; font-size: clamp(30px, 5vw, 54px); letter-spacing: -.04em; }
 .workflow-name { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; }
 .workflow-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 18px; color: var(--muted); font-size: 10px; }
 .workflow-stats strong { display: block; color: #fff; font-size: 16px; margin-top: 4px; }
+.workflow-stats .signal-stat { grid-column: 1 / -1; }
+.workflow-stats .signal-stat strong { font-size: 11px; line-height: 1.5; }
 .login-wrap { min-height: calc(100vh - 64px); display: grid; place-items: center; padding: 20px; }
 .login-card { width: min(520px, 100%); padding: 32px; border: 1px solid var(--line); background: var(--panel); }
 input, button { width: 100%; border: 1px solid var(--line); background: rgba(0,0,0,.3); color: #fff; padding: 14px; }
