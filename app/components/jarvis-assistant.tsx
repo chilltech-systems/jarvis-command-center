@@ -27,8 +27,7 @@ function clampPosition(position: Position) {
   };
 }
 
-function initialPosition(): Position {
-  if (typeof window === "undefined") return { x: -100, y: -100 };
+function savedPosition(): Position {
   const fallback = { x: window.innerWidth - ORB_SIZE - 24, y: window.innerHeight - ORB_SIZE - 28 };
   try {
     const saved = window.localStorage.getItem(STORAGE_KEY);
@@ -42,7 +41,7 @@ export function JarvisAssistant() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"chat" | "activity" | "integrations">("chat");
-  const [position, setPosition] = useState<Position>(initialPosition);
+  const [position, setPosition] = useState<Position | null>(null);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -53,9 +52,13 @@ export function JarvisAssistant() {
   const drag = useRef<{ pointerId: number; offsetX: number; offsetY: number; moved: boolean } | null>(null);
 
   useEffect(() => {
-    const resize = () => setPosition((current) => clampPosition(current));
+    const frame = window.requestAnimationFrame(() => setPosition(savedPosition()));
+    const resize = () => setPosition((current) => current ? clampPosition(current) : current);
     window.addEventListener("resize", resize);
-    return () => window.removeEventListener("resize", resize);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", resize);
+    };
   }, []);
 
   useEffect(() => {
@@ -76,15 +79,16 @@ export function JarvisAssistant() {
     });
   }, [open, bootstrap]);
 
-  if (pathname.startsWith("/login") || pathname.startsWith("/auth") || pathname.startsWith("/unauthorized")) return null;
+  if (pathname.startsWith("/login") || pathname.startsWith("/auth") || pathname.startsWith("/unauthorized") || !position) return null;
 
   function pointerDown(event: ReactPointerEvent<HTMLButtonElement>) {
+    if (!position) return;
     drag.current = { pointerId: event.pointerId, offsetX: event.clientX - position.x, offsetY: event.clientY - position.y, moved: false };
     event.currentTarget.setPointerCapture(event.pointerId);
   }
 
   function pointerMove(event: ReactPointerEvent<HTMLButtonElement>) {
-    if (!drag.current || drag.current.pointerId !== event.pointerId) return;
+    if (!position || !drag.current || drag.current.pointerId !== event.pointerId) return;
     const next = clampPosition({ x: event.clientX - drag.current.offsetX, y: event.clientY - drag.current.offsetY });
     if (Math.abs(next.x - position.x) > 3 || Math.abs(next.y - position.y) > 3) drag.current.moved = true;
     setPosition(next);
