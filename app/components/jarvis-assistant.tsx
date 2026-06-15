@@ -101,8 +101,8 @@ export function JarvisAssistant() {
     drag.current = null;
   }
 
-  async function sendMessage(event: FormEvent) {
-    event.preventDefault();
+  async function sendMessage(event?: FormEvent) {
+    event?.preventDefault();
     const message = input.trim();
     if (!message || busy) return;
     setInput("");
@@ -185,7 +185,7 @@ export function JarvisAssistant() {
           <form className="assistant-composer" onSubmit={sendMessage}>
             <input value={input} onChange={(event) => setInput(event.target.value)} placeholder="Ask Jarvis what needs attention..." maxLength={4000} />
             <button type="button" className="voice-button" disabled title="Voice architecture reserved for a future phase"><Mic size={16} /></button>
-            <button type="submit" className="send-button" disabled={busy || !input.trim()}><Send size={16} /></button>
+            <button type="button" className="send-button" disabled={busy || !input.trim()} onClick={() => sendMessage()} aria-label="Send request to Jarvis"><Send size={16} /></button>
           </form>
         </div>}
 
