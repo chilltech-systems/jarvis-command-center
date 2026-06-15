@@ -14,6 +14,7 @@ workflow.
 - `scripts/validate-n8n-workflow-json.js`
 - `scripts/validate-execution-collector.js`
 - `scripts/validate-business-pulse-variants.js`
+- `scripts/validate-hud-auth.js`
 - `scripts/send-standup-delivery.js`
 - `app/` - private Next.js Jarvis HUD
 

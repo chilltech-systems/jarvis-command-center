@@ -4,29 +4,45 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(() =>
+    typeof window === "undefined"
+      ? ""
+      : new URLSearchParams(window.location.search).get("error") ?? "",
+  );
+  const [loading, setLoading] = useState(false);
 
-  async function login(event: React.FormEvent) {
-    event.preventDefault();
+  async function login() {
+    setLoading(true);
+    setMessage("");
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+        queryParams: {
+          access_type: "offline",
+          prompt: "select_account",
+        },
+      },
     });
-    setMessage(error ? error.message : "Magic link sent. Check your inbox.");
+    if (error) {
+      setMessage(error.message);
+      setLoading(false);
+    }
   }
 
   return (
     <main className="login-wrap">
-      <form className="login-card" onSubmit={login}>
+      <section className="login-card">
         <div className="eyebrow">Restricted operations interface</div>
         <h1>Identity Check</h1>
-        <p className="subtle">Enter an approved administrator email to access Jarvis telemetry.</p>
-        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@email.com" required />
-        <button type="submit" style={{ marginTop: 12 }}>SEND MAGIC LINK</button>
-        {message && <p className="subtle">{message}</p>}
-      </form>
+        <p className="subtle">Sign in with an approved Google account to access Jarvis telemetry.</p>
+        <button type="button" onClick={login} disabled={loading} style={{ marginTop: 12 }}>
+          {loading ? "CONNECTING TO GOOGLE..." : "SIGN IN WITH GOOGLE"}
+        </button>
+        <p className="login-hint">Jarvis will ask which Google account to use on every new sign-in.</p>
+        {message && <p className="auth-error">{message}</p>}
+      </section>
     </main>
   );
 }

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Activity, RadioTower } from "lucide-react";
+import { AccountControls } from "@/app/components/account-controls";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -19,7 +20,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             <span>JARVIS</span>
             <small>COMMAND CENTER</small>
           </Link>
-          <div className="live-indicator"><Activity size={14} /> LIVE TELEMETRY</div>
+          <div className="topbar-actions">
+            <div className="live-indicator"><Activity size={14} /> LIVE TELEMETRY</div>
+            <AccountControls compact />
+          </div>
         </header>
         {children}
       </body>
