@@ -15,8 +15,12 @@ workflow.
 - `scripts/validate-execution-collector.js`
 - `scripts/validate-business-pulse-variants.js`
 - `scripts/validate-hud-auth.js`
+- `scripts/validate-jarvis-assistant-foundation.js`
 - `scripts/send-standup-delivery.js`
 - `app/` - private Next.js Jarvis HUD
+- `lib/jarvis/` - assistant tools, permissions, and integration registry
+- `docs/jarvis-assistant-phase1.md`
+- `docs/jarvis-integration-inventory.md`
 
 Shared n8n credentials remain outside this repository at
 `/Users/c.hill/Documents/Projects/.secrets/n8n.env`.

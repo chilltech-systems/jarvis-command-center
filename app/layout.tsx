@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Activity, RadioTower } from "lucide-react";
 import { AccountControls } from "@/app/components/account-controls";
+import { JarvisAssistant } from "@/app/components/jarvis-assistant";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -26,6 +27,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           </div>
         </header>
         {children}
+        <JarvisAssistant />
       </body>
     </html>
   );
