@@ -108,7 +108,7 @@ button:disabled { cursor: wait; opacity: .65; }
   transform: translateX(105%);
   transition: transform .3s cubic-bezier(.2,.8,.2,1);
 }
-.assistant-panel.open { transform: translateX(0); }
+.assistant-panel.open { transform: none; }
 .assistant-header { display: flex; align-items: center; justify-content: space-between; padding: 22px 20px 16px; border-bottom: 1px solid var(--line); }
 .assistant-header h2 { display: flex; gap: 9px; align-items: center; margin: 5px 0 0; font-size: 20px; font-weight: 500; }
 .icon-button, .voice-button, .send-button { width: 38px; height: 38px; padding: 0; display: grid; place-items: center; background: rgba(0,0,0,.24); }
@@ -165,7 +165,7 @@ button:disabled { cursor: wait; opacity: .65; }
   .login-card { padding: 24px; }
   .jarvis-orb { width: 56px; height: 56px; }
   .assistant-panel { top: auto; bottom: 0; width: 100vw; height: min(88vh, 760px); border-left: 0; border-top: 1px solid rgba(71,215,255,.32); transform: translateY(105%); }
-  .assistant-panel.open { transform: translateY(0); }
+  .assistant-panel.open { transform: none; }
   .assistant-header { padding: 17px 15px 12px; }
   .assistant-status { padding: 9px 15px; overflow-x: auto; white-space: nowrap; }
   .assistant-messages, .assistant-scroll { padding: 13px; }
