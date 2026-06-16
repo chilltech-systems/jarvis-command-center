@@ -96,10 +96,24 @@ export function extractTodoistTasks(data: unknown): TodoistTask[] | null {
 }
 
 export function parseTodoistCreateRequest(message: string): TodoistCreateParameters | null {
-  const cleaned = message
+  const normalized = message
     .trim()
     .replace(/^(jarvis[, ]*)?/i, "")
+    .replace(/^(please\s+)?(can you|could you|would you)\s+/i, "")
+    .trim();
+
+  const extractedTask = [
+    /\b(?:create|add|make|new)\s+(?:a\s+)?(?:todoist\s+)?(?:task|todo|to do)\s+(?:to\s+)?(.+?)(?:\s+(?:to|in|on)\s+(?:my\s+)?(?:todoist|todo|to do|task)\s*(?:list)?\s*)?$/i,
+    /\b(?:create|add|make|new|put)\s+(.+?)\s+(?:to|in|on)\s+(?:my\s+)?(?:todoist|todo|to do|task)\s*(?:list)?\s*$/i,
+    /^remind me to\s+(.+)$/i,
+  ].map((pattern) => normalized.match(pattern)?.[1]?.trim()).find(Boolean);
+
+  const cleaned = (extractedTask || normalized)
+    .trim()
     .replace(/^(please\s+)?(create|add|make|new)\s+(a\s+)?(todoist\s+)?(task|todo|to do)(\s+to)?\s*/i, "")
+    .replace(/^(please\s+)?(create|add|make|new)\s+/i, "")
+    .replace(/^remind me to\s+/i, "")
+    .replace(/\s+(to|in|on)\s+(my\s+)?(todoist|todo|to do|task)\s*(list)?\s*$/i, "")
     .replace(/^[:\-]\s*/, "")
     .trim();
 

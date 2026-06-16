@@ -22,8 +22,8 @@ export function findToolForMessage(message: string) {
 
   if (/(run|trigger|start).*(workflow|automation)/.test(normalized)) return toolByName("run_n8n_workflow");
   if (/(todoist|to do|todo|task|tasks|what do i need to do today|what are my tasks)/.test(normalized)) {
-    if (/(create|add|new).*(task|todo|to do)/.test(normalized)) return toolByName("todoist.create");
-    if (/(complete|finish|done|close).*(task|todo|to do)/.test(normalized)) return toolByName("todoist.complete");
+    if (/(create|add|new)\b/.test(normalized) && /(todoist|task|todo|to do)/.test(normalized)) return toolByName("todoist.create");
+    if (/(complete|finish|done|close)\b/.test(normalized) && /(todoist|task|todo|to do)/.test(normalized)) return toolByName("todoist.complete");
     return toolByName("todoist.list");
   }
   if (/(failed|failure|n8n|automation|workflow|system status|needs my attention)/.test(normalized)) return toolByName("get_n8n_status");
