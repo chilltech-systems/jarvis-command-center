@@ -14,6 +14,13 @@ export type TodoistTask = {
   priority?: number;
 };
 
+export type TodoistCreateParameters = {
+  task: string;
+  due?: string;
+  description?: string;
+  priority?: number;
+};
+
 type ToolHubResponse<T = unknown> = {
   success: boolean;
   tool: string;
@@ -86,4 +93,40 @@ export function extractTodoistTasks(data: unknown): TodoistTask[] | null {
   if (Array.isArray(maybeTasks)) return maybeTasks as TodoistTask[];
 
   return null;
+}
+
+export function parseTodoistCreateRequest(message: string): TodoistCreateParameters | null {
+  const cleaned = message
+    .trim()
+    .replace(/^(jarvis[, ]*)?/i, "")
+    .replace(/^(please\s+)?(create|add|make|new)\s+(a\s+)?(todoist\s+)?(task|todo|to do)(\s+to)?\s*/i, "")
+    .replace(/^[:\-]\s*/, "")
+    .trim();
+
+  if (!cleaned) return null;
+
+  let task = cleaned;
+  let due: string | undefined;
+  const dueMatch = task.match(/\b(?:due|for|on)\s+(today|tomorrow|next week|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i);
+  if (dueMatch) {
+    due = dueMatch[1].toLowerCase();
+    task = task.replace(dueMatch[0], "").replace(/\s+/g, " ").trim();
+  }
+
+  return {
+    task: task || cleaned,
+    ...(due ? { due } : {}),
+  };
+}
+
+export function formatTodoistCreateResult(data: unknown) {
+  if (!data || typeof data !== "object") return "Todoist task created.";
+  const candidate = (data as { result?: unknown; task?: unknown; data?: unknown }).result
+    ?? (data as { task?: unknown }).task
+    ?? data;
+  if (!candidate || typeof candidate !== "object") return "Todoist task created.";
+  const content = (candidate as { content?: unknown }).content;
+  return typeof content === "string" && content.trim()
+    ? `Todoist task created: ${content.trim()}`
+    : "Todoist task created.";
 }

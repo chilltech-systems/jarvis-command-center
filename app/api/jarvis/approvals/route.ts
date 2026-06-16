@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireJarvisAdmin } from "@/lib/jarvis/auth";
+import { callToolHub, formatTodoistCreateResult, type TodoistCreateParameters } from "@/lib/jarvis/tool-hub";
 
 export async function PATCH(request: Request) {
   const { authorized, supabase, user } = await requireJarvisAdmin();
@@ -15,18 +16,88 @@ export async function PATCH(request: Request) {
     .update({ status, decided_at: new Date().toISOString(), decided_by: user.id })
     .eq("approval_id", approvalId)
     .eq("status", "pending")
-    .select("approval_id, action, target, status")
+    .select("approval_id, action, target, status, conversation_id, tool_call_id")
     .single();
 
   if (error || !data) return NextResponse.json({ error: "Approval was not found or already decided" }, { status: 409 });
 
+  let message = `Jarvis action ${status}: ${data.action}`;
+  let executionStatus = status;
+
+  if (status === "approved" && data.tool_call_id) {
+    const { data: toolCall } = await supabase
+      .from("jarvis_tool_calls")
+      .select("tool_call_id, tool_name, input_summary")
+      .eq("tool_call_id", data.tool_call_id)
+      .eq("owner_id", user.id)
+      .single();
+
+    if (toolCall?.tool_name === "todoist.create") {
+      const parameters = (toolCall.input_summary as { parameters?: TodoistCreateParameters } | null)?.parameters;
+      if (!parameters?.task) {
+        executionStatus = "failed";
+        message = "Todoist task creation failed: missing task details.";
+        await supabase.from("jarvis_tool_calls").update({
+          status: "failed",
+          error_message: "Missing Todoist task details",
+          completed_at: new Date().toISOString(),
+        }).eq("tool_call_id", data.tool_call_id).eq("owner_id", user.id);
+      } else {
+        await supabase.from("jarvis_tool_calls").update({ status: "running" }).eq("tool_call_id", data.tool_call_id).eq("owner_id", user.id);
+        const result = await callToolHub({
+          tool: "todoist.create",
+          parameters,
+          user: user.email ?? "cody",
+        });
+        if (result.success) {
+          executionStatus = "executed";
+          message = formatTodoistCreateResult(result.data);
+          await supabase.from("jarvis_tool_calls").update({
+            status: "complete",
+            output_summary: { response: message, toolHub: result.data ?? null },
+            completed_at: new Date().toISOString(),
+          }).eq("tool_call_id", data.tool_call_id).eq("owner_id", user.id);
+          await supabase.from("jarvis_approvals").update({ status: "executed" }).eq("approval_id", approvalId).eq("owner_id", user.id);
+        } else {
+          executionStatus = "failed";
+          message = `Todoist task creation failed: ${result.error || "Unexpected Tool Hub response"}`;
+          await supabase.from("jarvis_tool_calls").update({
+            status: "failed",
+            error_message: result.error || "Unexpected Tool Hub response",
+            output_summary: { response: message },
+            completed_at: new Date().toISOString(),
+          }).eq("tool_call_id", data.tool_call_id).eq("owner_id", user.id);
+          await supabase.from("jarvis_approvals").update({ status: "failed" }).eq("approval_id", approvalId).eq("owner_id", user.id);
+        }
+      }
+    }
+  } else if (status === "denied" && data.tool_call_id) {
+    await supabase.from("jarvis_tool_calls").update({
+      status: "denied",
+      completed_at: new Date().toISOString(),
+    }).eq("tool_call_id", data.tool_call_id).eq("owner_id", user.id);
+  }
+
   await supabase.from("jarvis_activity_log").insert({
     owner_id: user.id,
+    conversation_id: data.conversation_id,
+    tool_call_id: data.tool_call_id,
     activity_type: "approval_decision",
-    summary: `Jarvis action ${status}: ${data.action}`,
-    status,
+    summary: message,
+    status: executionStatus,
     metadata: { approval_id: approvalId, target: data.target },
   });
 
-  return NextResponse.json(data);
+  if (data.conversation_id) {
+    await supabase.from("jarvis_messages").insert({
+      conversation_id: data.conversation_id,
+      owner_id: user.id,
+      role: "assistant",
+      content: message,
+      metadata: { approval_id: approvalId, status: executionStatus },
+    });
+    await supabase.from("jarvis_conversations").update({ updated_at: new Date().toISOString() }).eq("conversation_id", data.conversation_id);
+  }
+
+  return NextResponse.json({ ...data, status: executionStatus, message });
 }

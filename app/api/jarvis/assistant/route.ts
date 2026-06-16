@@ -4,7 +4,7 @@ import { discoverIntegrationCredentials } from "@/lib/jarvis/integrations";
 import { approvalForTool, toolCanRunWithoutApproval } from "@/lib/jarvis/permissions";
 import { findToolForMessage, JARVIS_TOOLS } from "@/lib/jarvis/tool-registry";
 import { askOpenAI, openAIConfigured } from "@/lib/jarvis/openai";
-import { callToolHub, extractTodoistTasks, formatTodoistTasks, type TodoistTask } from "@/lib/jarvis/tool-hub";
+import { callToolHub, extractTodoistTasks, formatTodoistTasks, parseTodoistCreateRequest, type TodoistTask } from "@/lib/jarvis/tool-hub";
 import type { AssistantResponse } from "@/lib/jarvis/types";
 
 const MAX_MESSAGE_LENGTH = 4000;
@@ -49,6 +49,7 @@ export async function POST(request: Request) {
     message: "I have recorded that request. Phase 1 is online, and I can route it once the matching capability is connected.",
     activity: "Jarvis received an assistant request",
   };
+  let toolInputSummary: Record<string, unknown> = { request: message };
 
   if (tool?.name === "get_n8n_status") {
     const { data } = await supabase.from("jarvis_hud_overview").select("*").limit(1).single();
@@ -73,6 +74,28 @@ export async function POST(request: Request) {
         : `Todoist is connected, but the Tool Hub request failed: ${toolHubResponse.error || "Unexpected Tool Hub response format"}`,
       activity: toolHubResponse.success ? "Jarvis listed Todoist tasks" : "Jarvis encountered a Todoist Tool Hub error",
     };
+  } else if (tool?.name === "todoist.create") {
+    const parameters = parseTodoistCreateRequest(message);
+    if (!parameters) {
+      response = {
+        tool,
+        message: "Tell me the task you want added to Todoist, for example: add task Follow up with Drew tomorrow.",
+        activity: "Jarvis requested Todoist task details",
+      };
+    } else {
+      toolInputSummary = { request: message, parameters };
+      response = {
+        tool,
+        approval: {
+          action: tool.approvalAction ?? "Create Todoist task",
+          target: parameters.task,
+          expectedResult: `Create a Todoist task${parameters.due ? ` due ${parameters.due}` : ""}.`,
+          status: "pending",
+        },
+        message: "This Todoist task requires approval before I create it.",
+        activity: "Jarvis requested approval for todoist.create",
+      };
+    }
   } else if (tool && tool.status === "credential_needed") {
     response = {
       tool,
@@ -142,7 +165,7 @@ export async function POST(request: Request) {
       tool_name: tool.name,
       permission_level: tool.permission,
       status: toolStatus,
-      input_summary: { request: message },
+      input_summary: toolInputSummary,
       output_summary: { response: response.message },
     }).select("tool_call_id").single()
     : { data: null };

@@ -129,12 +129,16 @@ export function JarvisAssistant() {
 
   async function decideApproval(approvalId: string | undefined, status: "approved" | "denied") {
     if (!approvalId) return;
-    await fetch("/api/jarvis/approvals", {
+    const response = await fetch("/api/jarvis/approvals", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ approvalId, status }),
     });
-    setMessages((current) => current.map((message) => message.approval?.id === approvalId ? { ...message, approval: undefined, content: `${message.content} Decision recorded: ${status}. No external action was executed in Phase 1.` } : message));
+    const data = await response.json().catch(() => ({}));
+    const decision = response.ok
+      ? data.message ?? `Decision recorded: ${status}.`
+      : data.error ?? "Jarvis could not record that approval decision.";
+    setMessages((current) => current.map((message) => message.approval?.id === approvalId ? { ...message, approval: undefined, content: decision } : message));
     setBootstrap(null);
   }
 
