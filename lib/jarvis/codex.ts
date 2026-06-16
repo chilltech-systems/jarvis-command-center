@@ -63,3 +63,7 @@ export function formatCodexPromptPackage(pkg: CodexPromptPackage) {
     "```",
   ].join("\n");
 }
+
+export function codexApprovalTarget(pkg: CodexPromptPackage) {
+  return `${pkg.title} (${pkg.workspace})`;
+}

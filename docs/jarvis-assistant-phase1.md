@@ -28,9 +28,9 @@ only capability metadata and whether required credentials are ready.
 | `requires_approval` | Creates an approval request showing action, target, and expected result |
 | `execute` | Reserved for explicitly approved server-side handlers |
 
-Approving a Phase 1 request records the decision only. It does not execute an
-external action until that tool receives a separately reviewed execution
-handler.
+Approving a request executes only reviewed handlers. Current approved execution
+handlers include Todoist task creation and Codex prompt queueing for the local
+runner.
 
 ## Current Capability
 
@@ -39,6 +39,10 @@ Command Center metrics from the existing protected Supabase view.
 
 Other initial tools have contracts, statuses, and permission gates ready for
 future integration.
+
+Codex prompt queueing uses `jarvis_codex_runs` and the local
+`scripts/jarvis-codex-runner.js` process. Vercel queues approved work; the local
+Mac runner executes it with local workspace access.
 
 OpenAI reasoning uses the server-side Responses API only when no deterministic
 Jarvis tool matches the request. OpenAI never bypasses Jarvis authentication,

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireJarvisAdmin } from "@/lib/jarvis/auth";
+import type { CodexPromptPackage } from "@/lib/jarvis/codex";
 import { callToolHub, formatTodoistCreateResult, type TodoistCreateParameters } from "@/lib/jarvis/tool-hub";
 
 export async function PATCH(request: Request) {
@@ -32,7 +33,53 @@ export async function PATCH(request: Request) {
       .eq("owner_id", user.id)
       .single();
 
-    if (toolCall?.tool_name === "todoist.create") {
+    if (toolCall?.tool_name === "create_codex_task") {
+      const codexPackage = (toolCall.input_summary as { codexPackage?: CodexPromptPackage } | null)?.codexPackage;
+      if (!codexPackage?.prompt) {
+        executionStatus = "failed";
+        message = "Codex prompt queueing failed: missing prompt package.";
+        await supabase.from("jarvis_tool_calls").update({
+          status: "failed",
+          error_message: "Missing Codex prompt package",
+          completed_at: new Date().toISOString(),
+        }).eq("tool_call_id", data.tool_call_id).eq("owner_id", user.id);
+        await supabase.from("jarvis_approvals").update({ status: "failed" }).eq("approval_id", approvalId).eq("owner_id", user.id);
+      } else {
+        const { data: run, error: runError } = await supabase.from("jarvis_codex_runs").insert({
+          conversation_id: data.conversation_id,
+          tool_call_id: data.tool_call_id,
+          approval_id: approvalId,
+          owner_id: user.id,
+          title: codexPackage.title,
+          objective: codexPackage.objective,
+          workspace_path: codexPackage.workspace,
+          prompt: codexPackage.prompt,
+          status: "queued",
+          requested_by_email: user.email,
+          metadata: { source: "jarvis-command-center" },
+        }).select("run_id").single();
+
+        if (runError || !run?.run_id) {
+          executionStatus = "failed";
+          message = `Codex prompt queueing failed: ${runError?.message || "Unknown Supabase error"}`;
+          await supabase.from("jarvis_tool_calls").update({
+            status: "failed",
+            error_message: message,
+            completed_at: new Date().toISOString(),
+          }).eq("tool_call_id", data.tool_call_id).eq("owner_id", user.id);
+          await supabase.from("jarvis_approvals").update({ status: "failed" }).eq("approval_id", approvalId).eq("owner_id", user.id);
+        } else {
+          executionStatus = "executed";
+          message = `Codex prompt queued for local runner: ${codexPackage.title}`;
+          await supabase.from("jarvis_tool_calls").update({
+            status: "complete",
+            output_summary: { response: message, codexRunId: run.run_id },
+            completed_at: new Date().toISOString(),
+          }).eq("tool_call_id", data.tool_call_id).eq("owner_id", user.id);
+          await supabase.from("jarvis_approvals").update({ status: "executed" }).eq("approval_id", approvalId).eq("owner_id", user.id);
+        }
+      }
+    } else if (toolCall?.tool_name === "todoist.create") {
       const parameters = (toolCall.input_summary as { parameters?: TodoistCreateParameters } | null)?.parameters;
       if (!parameters?.task) {
         executionStatus = "failed";

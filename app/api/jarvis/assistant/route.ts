@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireJarvisAdmin } from "@/lib/jarvis/auth";
-import { createCodexPromptPackage, formatCodexPromptPackage } from "@/lib/jarvis/codex";
+import { codexApprovalTarget, createCodexPromptPackage, formatCodexPromptPackage } from "@/lib/jarvis/codex";
 import { discoverIntegrationCredentials } from "@/lib/jarvis/integrations";
 import { approvalForTool, toolCanRunWithoutApproval } from "@/lib/jarvis/permissions";
 import { findToolForMessage, JARVIS_TOOLS } from "@/lib/jarvis/tool-registry";
@@ -109,8 +109,14 @@ export async function POST(request: Request) {
       toolInputSummary = { request: message, codexPackage };
       response = {
         tool,
-        message: formatCodexPromptPackage(codexPackage),
-        activity: "Jarvis prepared a Codex prompt package",
+        approval: {
+          action: tool.approvalAction ?? "Queue Codex prompt",
+          target: codexApprovalTarget(codexPackage),
+          expectedResult: "Queue this prompt for the local Codex runner on Cody's Mac.",
+          status: "pending",
+        },
+        message: `${formatCodexPromptPackage(codexPackage)}\n\nApprove this request to queue it for the local Codex runner.`,
+        activity: "Jarvis requested approval for create_codex_task",
       };
     }
   } else if (tool && tool.status === "credential_needed") {
