@@ -4,6 +4,7 @@ import { discoverIntegrationCredentials } from "@/lib/jarvis/integrations";
 import { approvalForTool, toolCanRunWithoutApproval } from "@/lib/jarvis/permissions";
 import { findToolForMessage, JARVIS_TOOLS } from "@/lib/jarvis/tool-registry";
 import { askOpenAI, openAIConfigured } from "@/lib/jarvis/openai";
+import { callToolHub, formatTodoistTasks, type TodoistTask } from "@/lib/jarvis/tool-hub";
 import type { AssistantResponse } from "@/lib/jarvis/types";
 
 const MAX_MESSAGE_LENGTH = 4000;
@@ -57,6 +58,19 @@ export async function POST(request: Request) {
         ? `Current automation status: ${data.active_workflows ?? 0} active workflows, ${data.executions_today ?? 0} executions today, ${data.errors_today ?? 0} errors, and ${data.open_issues ?? 0} open issues.`
         : "The monitoring connection is available, but no overview metrics were returned.",
       activity: "Jarvis summarized n8n status",
+    };
+  } else if (tool?.name === "todoist.list") {
+    const toolHubResponse = await callToolHub<TodoistTask[]>({
+      tool: "todoist.list",
+      parameters: { filter: "today | overdue" },
+      user: user.email ?? "cody",
+    });
+    response = {
+      tool,
+      message: toolHubResponse.success && Array.isArray(toolHubResponse.data)
+        ? formatTodoistTasks(toolHubResponse.data)
+        : `Todoist is connected, but the Tool Hub request failed: ${toolHubResponse.error || "Unknown error"}`,
+      activity: toolHubResponse.success ? "Jarvis listed Todoist tasks" : "Jarvis encountered a Todoist Tool Hub error",
     };
   } else if (tool && tool.status === "credential_needed") {
     response = {
