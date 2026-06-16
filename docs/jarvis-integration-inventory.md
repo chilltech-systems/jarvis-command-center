@@ -10,7 +10,7 @@ credential values.
 | Vercel | Connected | read_only | Private HUD and server-side routes |
 | GitHub | Connected | draft | Repository and deployment connection |
 | n8n | Connected | requires_approval | Monitoring connected; approved trigger handler is future work |
-| OpenAI | Ready To Configure | execute | Server-side Responses API handler ready; credential needed |
+| OpenAI | Connected | execute | Server-side Responses API handler active in production |
 | Google Gmail | Credential Needed | requires_approval | Read, summarize, draft, and approved send |
 | Google Calendar | Credential Needed | requires_approval | Read, conflicts, and draft events |
 | Google Drive | Credential Needed | read_only | Project knowledge source |
