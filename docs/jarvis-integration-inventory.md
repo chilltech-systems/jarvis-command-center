@@ -15,7 +15,7 @@ credential values.
 | Google Calendar | Credential Needed | requires_approval | Read, conflicts, and draft events |
 | Google Drive | Credential Needed | read_only | Project knowledge source |
 | Slack | Credential Needed | requires_approval | Read, draft, and approved send |
-| Codex | Ready To Configure | draft | Structured development task creation |
+| Codex | Connected | draft | Structured prompt packages; direct execution needs a local runner or Codex connector |
 | Business Data Sources | In Progress | read_only | Current n8n pulses are the first signals |
 | Project Knowledge | Ready To Configure | read_only | Memory and knowledge schema ready |
 | Twilio | Future | requires_approval | Calls and SMS |

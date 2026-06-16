@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireJarvisAdmin } from "@/lib/jarvis/auth";
+import { createCodexPromptPackage, formatCodexPromptPackage } from "@/lib/jarvis/codex";
 import { discoverIntegrationCredentials } from "@/lib/jarvis/integrations";
 import { approvalForTool, toolCanRunWithoutApproval } from "@/lib/jarvis/permissions";
 import { findToolForMessage, JARVIS_TOOLS } from "@/lib/jarvis/tool-registry";
@@ -94,6 +95,22 @@ export async function POST(request: Request) {
         },
         message: "This Todoist task requires approval before I create it.",
         activity: "Jarvis requested approval for todoist.create",
+      };
+    }
+  } else if (tool?.name === "create_codex_task") {
+    const codexPackage = createCodexPromptPackage(message);
+    if (!codexPackage) {
+      response = {
+        tool,
+        message: "Tell me what you want Codex to build or fix, for example: create a Codex task to add Google Calendar read access to Jarvis.",
+        activity: "Jarvis requested Codex task details",
+      };
+    } else {
+      toolInputSummary = { request: message, codexPackage };
+      response = {
+        tool,
+        message: formatCodexPromptPackage(codexPackage),
+        activity: "Jarvis prepared a Codex prompt package",
       };
     }
   } else if (tool && tool.status === "credential_needed") {

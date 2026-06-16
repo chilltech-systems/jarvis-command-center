@@ -12,7 +12,7 @@ export const JARVIS_TOOLS: JarvisToolDefinition[] = [
   { name: "draft_calendar_event", description: "Prepare a calendar event for approval.", category: "Scheduling", permission: "draft", status: "credential_needed", integration: "google_calendar" },
   { name: "get_business_metrics", description: "Answer questions from connected operating metrics.", category: "Business Intelligence", permission: "read_only", status: "planned", integration: "business_data" },
   { name: "search_project_knowledge", description: "Search approved project documentation and architecture notes.", category: "Knowledge", permission: "read_only", status: "planned", integration: "project_knowledge" },
-  { name: "create_codex_task", description: "Prepare a scoped development task for Codex.", category: "Development", permission: "draft", status: "planned", integration: "codex" },
+  { name: "create_codex_task", description: "Prepare a scoped development task for Codex.", category: "Development", permission: "draft", status: "available", integration: "codex" },
   { name: "send_slack_message", description: "Send an approved Slack message.", category: "Communication", permission: "requires_approval", status: "credential_needed", integration: "slack", approvalAction: "Send Slack message" },
 ];
 
