@@ -4,7 +4,7 @@ import { discoverIntegrationCredentials } from "@/lib/jarvis/integrations";
 import { approvalForTool, toolCanRunWithoutApproval } from "@/lib/jarvis/permissions";
 import { findToolForMessage, JARVIS_TOOLS } from "@/lib/jarvis/tool-registry";
 import { askOpenAI, openAIConfigured } from "@/lib/jarvis/openai";
-import { callToolHub, formatTodoistTasks, type TodoistTask } from "@/lib/jarvis/tool-hub";
+import { callToolHub, extractTodoistTasks, formatTodoistTasks, type TodoistTask } from "@/lib/jarvis/tool-hub";
 import type { AssistantResponse } from "@/lib/jarvis/types";
 
 const MAX_MESSAGE_LENGTH = 4000;
@@ -65,11 +65,12 @@ export async function POST(request: Request) {
       parameters: { filter: "today | overdue" },
       user: user.email ?? "cody",
     });
+    const todoistTasks = extractTodoistTasks(toolHubResponse.data);
     response = {
       tool,
-      message: toolHubResponse.success && Array.isArray(toolHubResponse.data)
-        ? formatTodoistTasks(toolHubResponse.data)
-        : `Todoist is connected, but the Tool Hub request failed: ${toolHubResponse.error || "Unknown error"}`,
+      message: toolHubResponse.success && todoistTasks
+        ? formatTodoistTasks(todoistTasks)
+        : `Todoist is connected, but the Tool Hub request failed: ${toolHubResponse.error || "Unexpected Tool Hub response format"}`,
       activity: toolHubResponse.success ? "Jarvis listed Todoist tasks" : "Jarvis encountered a Todoist Tool Hub error",
     };
   } else if (tool && tool.status === "credential_needed") {

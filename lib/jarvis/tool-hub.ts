@@ -74,3 +74,16 @@ export function formatTodoistTasks(tasks: TodoistTask[]) {
   const suffix = tasks.length > lines.length ? `\n\n${tasks.length - lines.length} more tasks are available in Todoist.` : "";
   return `Todoist tasks for today/overdue:\n${lines.join("\n")}${suffix}`;
 }
+
+export function extractTodoistTasks(data: unknown): TodoistTask[] | null {
+  if (Array.isArray(data)) return data as TodoistTask[];
+  if (!data || typeof data !== "object") return null;
+
+  const maybeResults = (data as { results?: unknown }).results;
+  if (Array.isArray(maybeResults)) return maybeResults as TodoistTask[];
+
+  const maybeTasks = (data as { tasks?: unknown }).tasks;
+  if (Array.isArray(maybeTasks)) return maybeTasks as TodoistTask[];
+
+  return null;
+}
