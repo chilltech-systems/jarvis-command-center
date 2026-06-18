@@ -9,9 +9,11 @@ const component = read("app/components/jarvis-assistant.tsx");
 const assistantRoute = read("app/api/jarvis/assistant/route.ts");
 const approvalRoute = read("app/api/jarvis/approvals/route.ts");
 const tools = read("lib/jarvis/tool-registry.ts");
+const toolHub = read("lib/jarvis/tool-hub.ts");
 const integrations = read("lib/jarvis/integrations.ts");
 const openai = read("lib/jarvis/openai.ts");
 const migration = read("supabase/migrations/20260615000100_jarvis_assistant_phase1.sql");
+const parserEdgeCases = read("docs/jarvis-tool-hub-parser-routing-edge-cases.md");
 
 for (const value of ["jarvis-orb", "assistant-panel", "localStorage", "approval-card", "Integration inventory"]) {
   if (!component.includes(value)) errors.push(`assistant UI is missing ${value}`);
@@ -57,8 +59,38 @@ if (!assistantRoute.includes("askOpenAI") || !assistantRoute.includes("openAICon
   errors.push("assistant route is not connected to the OpenAI reasoning handler");
 }
 
+for (const required of [
+  "parseTodoistCreateRequest",
+  "extractTodoistTasks",
+  "formatTodoistTasks",
+  "formatTodoistCreateResult",
+]) {
+  if (!toolHub.includes(required)) errors.push(`Tool Hub parser is missing ${required}`);
+}
+
+for (const required of [
+  "findToolForMessage",
+  "todoist.create",
+  "todoist.list",
+  "todoist.complete",
+  "create_codex_task",
+  "get_n8n_status",
+]) {
+  if (!tools.includes(required)) errors.push(`tool registry routing is missing ${required}`);
+}
+
+for (const required of [
+  "Todoist create routing",
+  "Todoist list routing",
+  "Todoist complete routing",
+  "Route priority conflicts",
+  "Tool Hub response formatting",
+]) {
+  if (!parserEdgeCases.includes(required)) errors.push(`parser edge-case guidance is missing ${required}`);
+}
+
 const obviousSecret = /(sk-[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{20,})/;
-for (const [label, content] of [["tools", tools], ["integrations", integrations], ["openai", openai], ["migration", migration]]) {
+for (const [label, content] of [["tools", tools], ["toolHub", toolHub], ["integrations", integrations], ["openai", openai], ["migration", migration]]) {
   if (obviousSecret.test(content)) errors.push(`${label} contains an obvious secret`);
 }
 
