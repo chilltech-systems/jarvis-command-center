@@ -5,7 +5,7 @@ export type CodexPromptPackage = {
   prompt: string;
 };
 
-const DEFAULT_WORKSPACE = "/Users/c.hill/Documents/Projects";
+const DEFAULT_WORKSPACE = "/Users/c.hill/Documents/Projects/jarvis-command-center";
 
 function cleanCodexRequest(message: string) {
   return message
