@@ -69,7 +69,7 @@ export const intelligenceFeed = [
 ];
 
 export const dailyBrief = {
-  summary: "Good morning, Cody. I found 2 events that need attention, 4 scheduled tasks due today, one automation to review, and a clean focus block after lunch.",
+  summary: "Cody, I found 2 events that need attention, 4 scheduled tasks due today, one automation to review, and a clean focus block after lunch.",
   scheduleOverview: "I found three events on the calendar, with the next meeting at 11:30 AM.",
   taskPriorities: "I would clear the automation review first, then finish CHILL TECH proof notes and MarketBrief source planning.",
   weatherImpact: "I see storms may move in this evening. I would keep outside errands early and avoid tight travel windows.",

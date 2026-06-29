@@ -7,6 +7,7 @@ import { getAvaWeather } from "@/lib/ava/weather";
 import { getAvaProjects } from "@/lib/ava/projects";
 import { getAvaIntelligenceFeed } from "@/lib/ava/intelligence";
 import { getAvaCompletedTasks } from "@/lib/ava/completed-tasks";
+import { getCentralGreeting } from "@/lib/ava/time";
 
 export default async function Home() {
   const [{ groups: groupedTasks, source: taskSource }, completedTasks, liveWeather, liveProjects, liveFeed] = await Promise.all([
@@ -20,7 +21,7 @@ export default async function Home() {
     todayItems: groupedTasks.scheduled.filter((task) => task.status !== "upcoming"),
   };
   const activeProjectCount = liveProjects.filter((project) => ["Active", "Ready", "Prototype"].includes(project.status)).length;
-  const snapshotSummary = `Good morning, Cody. I found ${groupedTasks.scheduled.length} scheduled Todoist item${groupedTasks.scheduled.length === 1 ? "" : "s"}, ${groupedTasks.overdue.length} overdue, ${activeProjectCount} active local project${activeProjectCount === 1 ? "" : "s"}, and ${liveWeather.condition.toLowerCase()} around ${liveWeather.temperature}° in ${liveWeather.location}. I also saw ${completedTasks.completedCount} Todoist task${completedTasks.completedCount === 1 ? "" : "s"} already completed today.`;
+  const snapshotSummary = `${getCentralGreeting()}, Cody. I found ${groupedTasks.scheduled.length} scheduled Todoist item${groupedTasks.scheduled.length === 1 ? "" : "s"}, ${groupedTasks.overdue.length} overdue, ${activeProjectCount} active local project${activeProjectCount === 1 ? "" : "s"}, and ${liveWeather.condition.toLowerCase()} around ${liveWeather.temperature}° in ${liveWeather.location}. I also saw ${completedTasks.completedCount} Todoist task${completedTasks.completedCount === 1 ? "" : "s"} already completed today.`;
   return (
     <AvaPageShell eyebrow="Ava Dashboard" title="Home" subtitle="I am watching the day quietly and surfacing what matters first.">
       <section className="grid home-grid">
