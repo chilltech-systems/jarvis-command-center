@@ -1,4 +1,5 @@
 import type { JarvisToolDefinition } from "@/lib/jarvis/types";
+import type { DashboardContext, TrendContext } from "@/lib/jarvis/dashboard-context";
 
 const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
 const DEFAULT_MODEL = "gpt-5.4";
@@ -36,10 +37,14 @@ export async function askOpenAI({
   message,
   history,
   tools,
+  dashboardContext,
+  trendContext,
 }: {
   message: string;
   history: ConversationMessage[];
   tools: JarvisToolDefinition[];
+  dashboardContext?: DashboardContext;
+  trendContext?: TrendContext;
 }) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return null;
@@ -61,6 +66,7 @@ export async function askOpenAI({
       model: process.env.OPENAI_MODEL || DEFAULT_MODEL,
       instructions: [
         "You are Ava, Cody Hill's concise personal operations assistant.",
+        "Speak in first person as Ava and sound like you are quietly watching the operating system in the background.",
         "Be professional, practical, and direct.",
         "Never claim an external action was completed unless the application explicitly reports it.",
         "External sends, deletions, sensitive workflow runs, and production changes require approval.",
@@ -71,6 +77,18 @@ export async function askOpenAI({
       ].join("\n"),
       input: [
         conversation ? `Recent conversation:\n${conversation}` : "",
+        dashboardContext ? `Current dashboard context:\n${JSON.stringify({
+          pageLabel: dashboardContext.pageLabel,
+          path: dashboardContext.path,
+          taskSummary: dashboardContext.taskSummary,
+          automationSummary: dashboardContext.automationSummary,
+          projectSummary: dashboardContext.projectSummary,
+          connectionSummary: dashboardContext.connectionSummary,
+          capabilitySummary: dashboardContext.capabilitySummary,
+          recentActivity: dashboardContext.recentActivity,
+          openIssues: dashboardContext.openIssues,
+        }, null, 2)}` : "",
+        trendContext ? `Dashboard trend memory:\n${trendContext.summary.join("\n")}` : "",
         `Current user request:\n${message}`,
       ].filter(Boolean).join("\n\n"),
       max_output_tokens: 700,

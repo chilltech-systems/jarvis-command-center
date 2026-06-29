@@ -3,6 +3,11 @@ import { requireJarvisAdmin } from "@/lib/jarvis/auth";
 import type { CodexPromptPackage } from "@/lib/jarvis/codex";
 import { callToolHub, formatTodoistCreateResult, type TodoistCreateParameters } from "@/lib/jarvis/tool-hub";
 
+type ToolHubApprovalInput = {
+  parameters?: Record<string, unknown>;
+  toolHubTool?: string;
+};
+
 export async function PATCH(request: Request) {
   const { authorized, supabase, user } = await requireJarvisAdmin();
   if (!authorized || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -108,6 +113,44 @@ export async function PATCH(request: Request) {
         } else {
           executionStatus = "failed";
           message = `Todoist task creation failed: ${result.error || "Unexpected Tool Hub response"}`;
+          await supabase.from("jarvis_tool_calls").update({
+            status: "failed",
+            error_message: result.error || "Unexpected Tool Hub response",
+            output_summary: { response: message },
+            completed_at: new Date().toISOString(),
+          }).eq("tool_call_id", data.tool_call_id).eq("owner_id", user.id);
+          await supabase.from("jarvis_approvals").update({ status: "failed" }).eq("approval_id", approvalId).eq("owner_id", user.id);
+        }
+      }
+    } else if (["send_email", "send_slack_message", "send_sms", "create_calendar_event", "write_google_sheet"].includes(toolCall?.tool_name || "")) {
+      const { parameters, toolHubTool } = (toolCall?.input_summary as ToolHubApprovalInput | null) || {};
+      if (!parameters || !toolHubTool) {
+        executionStatus = "failed";
+        message = "Approved Tool Hub action failed: missing execution parameters.";
+        await supabase.from("jarvis_tool_calls").update({
+          status: "failed",
+          error_message: "Missing Tool Hub action parameters",
+          completed_at: new Date().toISOString(),
+        }).eq("tool_call_id", data.tool_call_id).eq("owner_id", user.id);
+      } else {
+        await supabase.from("jarvis_tool_calls").update({ status: "running" }).eq("tool_call_id", data.tool_call_id).eq("owner_id", user.id);
+        const result = await callToolHub({
+          tool: toolHubTool,
+          parameters,
+          user: user.email ?? "cody",
+        });
+        if (result.success) {
+          executionStatus = "executed";
+          message = `I completed the approved ${toolHubTool} action.`;
+          await supabase.from("jarvis_tool_calls").update({
+            status: "complete",
+            output_summary: { response: message, toolHub: result.data ?? null },
+            completed_at: new Date().toISOString(),
+          }).eq("tool_call_id", data.tool_call_id).eq("owner_id", user.id);
+          await supabase.from("jarvis_approvals").update({ status: "executed" }).eq("approval_id", approvalId).eq("owner_id", user.id);
+        } else {
+          executionStatus = "failed";
+          message = `Approved ${toolHubTool} action failed: ${result.error || "Unexpected Tool Hub response"}`;
           await supabase.from("jarvis_tool_calls").update({
             status: "failed",
             error_message: result.error || "Unexpected Tool Hub response",

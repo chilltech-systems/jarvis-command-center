@@ -17,7 +17,7 @@ export const connectorSnapshots: AvaConnectorSnapshot[] = [
     status: "Connected",
     source: "Codex Gmail connector",
     updatedAt: "2026-06-28T20:12:43Z",
-    summary: "Read-only mailbox access confirmed for Cody Hill.",
+    summary: "I confirmed read-only mailbox access for Cody Hill.",
     metrics: {
       inboxUnread: 66,
       unreadThreads: 43,
@@ -31,7 +31,7 @@ export const connectorSnapshots: AvaConnectorSnapshot[] = [
     status: "Connected",
     source: "Codex Google Drive connector",
     updatedAt: "2026-06-28T20:12:43Z",
-    summary: "Drive connector responded successfully. No shared drives were returned.",
+    summary: "I reached Drive successfully. No shared drives were returned.",
     metrics: {
       sharedDrives: 0,
     },
@@ -43,7 +43,7 @@ export const connectorSnapshots: AvaConnectorSnapshot[] = [
     status: "Connected",
     source: "Codex Slack connector",
     updatedAt: "2026-06-28T20:12:43Z",
-    summary: "Slack connector returned visible public, private, and direct-message conversations.",
+    summary: "I saw visible public, private, and direct-message conversations.",
     metrics: {
       sampledConversations: 3,
       hasMore: "yes",

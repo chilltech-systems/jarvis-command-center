@@ -74,10 +74,10 @@ function displayCondition({
 }
 
 function recommendation({ rainChance, high, condition, precipitation }: { rainChance: number; high: number; condition: string; precipitation: number }) {
-  if ((/thunder/i.test(condition) && precipitation > 0) || rainChance >= 55) return "Keep errands earlier and leave extra travel buffer for storms.";
-  if (high >= 95) return "Plan outdoor work early and keep water nearby.";
-  if (rainChance >= 30) return "Keep an umbrella handy and avoid tight outdoor plans.";
-  return "Weather looks workable. No major schedule adjustment needed.";
+  if ((/thunder/i.test(condition) && precipitation > 0) || rainChance >= 55) return "I would keep errands earlier and leave extra travel buffer for storms.";
+  if (high >= 95) return "I would keep outdoor work early and water nearby.";
+  if (rainChance >= 30) return "I would keep an umbrella close and avoid tight outdoor plans.";
+  return "I do not see a major weather adjustment needed.";
 }
 
 export async function getAvaWeather() {
@@ -93,9 +93,17 @@ export async function getAvaWeather() {
   });
 
   try {
-    const response = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`, {
-      cache: "no-store",
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3500);
+    let response: Response;
+    try {
+      response = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`, {
+        cache: "no-store",
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
     if (!response.ok) throw new Error(`Open-Meteo returned ${response.status}`);
     const data = await response.json() as OpenMeteoResponse;
     const code = data.current?.weather_code ?? 0;
@@ -126,7 +134,7 @@ export async function getAvaWeather() {
     return {
       ...mockWeather,
       source: "mock",
-      error: error instanceof Error ? error.message : "Weather fetch failed",
+      error: error instanceof Error && error.name === "AbortError" ? "Weather fetch timed out" : error instanceof Error ? error.message : "Weather fetch failed",
       updatedAt: new Date().toISOString(),
     };
   }

@@ -4,6 +4,7 @@ type ToolHubRequest = {
   tool: string;
   parameters?: Record<string, unknown>;
   user?: string;
+  timeoutMs?: number;
 };
 
 export type TodoistTask = {
@@ -33,6 +34,15 @@ type ToolHubResponse<T = unknown> = {
   error?: string;
 };
 
+type CredentialCatalog = {
+  defaults?: Record<string, string>;
+  accounts?: Record<string, Record<string, { status?: string; credentialName?: string; credentialType?: string }>>;
+};
+
+type ToolRegistry = {
+  tools?: Record<string, { enabled?: boolean; permission?: string; workflow?: string; webhookPath?: string }>;
+};
+
 function parseEnvFile(path: string) {
   try {
     const env: Record<string, string> = {};
@@ -46,6 +56,41 @@ function parseEnvFile(path: string) {
   } catch {
     return {};
   }
+}
+
+function readJson<T>(path: string, fallback: T): T {
+  try {
+    return JSON.parse(fs.readFileSync(path, "utf8")) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+export function getToolHubCredentialCatalog() {
+  return readJson<CredentialCatalog>("/Users/c.hill/Documents/Projects/jarvis-tool-hub/schemas/credential-routing-catalog.json", {});
+}
+
+export function getToolHubRegistry() {
+  return readJson<ToolRegistry>("/Users/c.hill/Documents/Projects/jarvis-tool-hub/schemas/tool-registry.json", {});
+}
+
+export function connectedToolHubAccounts(service: string) {
+  const catalog = getToolHubCredentialCatalog();
+  return Object.entries(catalog.accounts?.[service] || {})
+    .filter(([, account]) => account.status === "connected")
+    .map(([key, account]) => ({
+      key,
+      credentialName: account.credentialName || key,
+      credentialType: account.credentialType || "",
+    }));
+}
+
+export function toolHubToolEnabled(tool: string) {
+  return getToolHubRegistry().tools?.[tool]?.enabled === true;
+}
+
+export function toolHubServiceConnected(service: string) {
+  return toolHubConfigured() && connectedToolHubAccounts(service).length > 0;
 }
 
 function toolHubSettings() {
@@ -63,7 +108,7 @@ export function toolHubConfigured() {
   return Boolean(url && token);
 }
 
-export async function callToolHub<T = unknown>({ tool, parameters = {}, user = "cody" }: ToolHubRequest): Promise<ToolHubResponse<T>> {
+export async function callToolHub<T = unknown>({ tool, parameters = {}, user = "cody", timeoutMs = 8000 }: ToolHubRequest): Promise<ToolHubResponse<T>> {
   const { url, token } = toolHubSettings();
   if (!url || !token) {
     return {
@@ -73,20 +118,34 @@ export async function callToolHub<T = unknown>({ tool, parameters = {}, user = "
     };
   }
 
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-JARVIS-TOKEN": token,
-    },
-    body: JSON.stringify({
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-JARVIS-TOKEN": token,
+      },
+      body: JSON.stringify({
+        tool,
+        parameters,
+        user,
+        source: "jarvis-command-center",
+      }),
+      cache: "no-store",
+      signal: controller.signal,
+    });
+  } catch (error) {
+    return {
+      success: false,
       tool,
-      parameters,
-      user,
-      source: "jarvis-command-center",
-    }),
-    cache: "no-store",
-  });
+      error: error instanceof Error && error.name === "AbortError" ? `Tool Hub timed out after ${timeoutMs}ms.` : "Tool Hub request failed.",
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
@@ -107,7 +166,7 @@ export function formatTodoistTasks(tasks: TodoistTask[]) {
     const due = task.due?.string || task.due?.date;
     return `${index + 1}. ${task.content || "Untitled task"}${due ? ` (${due})` : ""}`;
   });
-  const suffix = tasks.length > lines.length ? `\n\n${tasks.length - lines.length} more tasks are available in Todoist.` : "";
+  const suffix = tasks.length > lines.length ? `\n\nI found ${tasks.length - lines.length} more task${tasks.length - lines.length === 1 ? "" : "s"} available in Todoist.` : "";
   return `Todoist tasks for today/overdue:\n${lines.join("\n")}${suffix}`;
 }
 
@@ -172,4 +231,72 @@ export function formatTodoistCreateResult(data: unknown) {
   return typeof content === "string" && content.trim()
     ? `Todoist task created: ${content.trim()}`
     : "Todoist task created.";
+}
+
+export type GmailMessageSummary = {
+  id?: string;
+  threadId?: string;
+  from?: unknown;
+  sender?: string;
+  subject?: unknown;
+  snippet?: unknown;
+  textSnippet?: string;
+  bodyPreview?: string;
+  internalDate?: string | number;
+  date?: string;
+};
+
+function textValue(value: unknown) {
+  if (typeof value === "string") return value;
+  if (value && typeof value === "object") {
+    const candidate = value as { text?: unknown; value?: Array<{ address?: unknown; name?: unknown }> };
+    if (typeof candidate.text === "string") return candidate.text;
+    const first = candidate.value?.find((entry) => entry.address || entry.name);
+    if (first) return [first.name, first.address].filter(Boolean).join(" ");
+  }
+  return "";
+}
+
+export function extractArray(data: unknown): unknown[] | null {
+  if (Array.isArray(data)) return data;
+  if (!data || typeof data !== "object") return null;
+  const candidate = data as { messages?: unknown; items?: unknown; results?: unknown; events?: unknown; rows?: unknown; values?: unknown; data?: unknown };
+  for (const value of [candidate.messages, candidate.items, candidate.results, candidate.events, candidate.rows, candidate.values]) {
+    if (Array.isArray(value)) return value;
+  }
+  return extractArray(candidate.data);
+}
+
+export function formatGmailSearchResult(data: unknown) {
+  const messages = extractArray(data) as GmailMessageSummary[] | null;
+  if (!messages?.length) return "I searched Gmail and did not find matching messages.";
+
+  const lines = messages.slice(0, 6).map((message, index) => {
+    const from = textValue(message.from) || message.sender || "Unknown sender";
+    const subject = textValue(message.subject) || "(No subject)";
+    const snippet = textValue(message.snippet) || message.textSnippet || message.bodyPreview || "";
+    return `${index + 1}. ${subject} — ${from}${snippet ? `: ${snippet.slice(0, 120)}` : ""}`;
+  });
+  const suffix = messages.length > lines.length ? `\n\nI found ${messages.length - lines.length} more matching message${messages.length - lines.length === 1 ? "" : "s"}.` : "";
+  return `I found ${messages.length} Gmail message${messages.length === 1 ? "" : "s"}:\n${lines.join("\n")}${suffix}`;
+}
+
+export function formatCalendarListResult(data: unknown) {
+  const events = extractArray(data);
+  if (!events?.length) return "I checked calendar and did not find upcoming events in the returned window.";
+
+  const lines = events.slice(0, 8).map((event, index) => {
+    const item = event as { summary?: unknown; title?: unknown; start?: unknown; end?: unknown };
+    const title = textValue(item.summary) || textValue(item.title) || "Untitled event";
+    const start = typeof item.start === "string" ? item.start : item.start && typeof item.start === "object" ? textValue((item.start as { dateTime?: unknown; date?: unknown }).dateTime || (item.start as { date?: unknown }).date) : "";
+    return `${index + 1}. ${title}${start ? ` (${start})` : ""}`;
+  });
+  const suffix = events.length > lines.length ? `\n\nI found ${events.length - lines.length} more event${events.length - lines.length === 1 ? "" : "s"}.` : "";
+  return `I found ${events.length} calendar event${events.length === 1 ? "" : "s"}:\n${lines.join("\n")}${suffix}`;
+}
+
+export function formatSheetReadResult(data: unknown) {
+  const rows = extractArray(data);
+  if (!rows?.length) return "I read the sheet and did not find returned rows.";
+  return `I read ${rows.length} sheet row${rows.length === 1 ? "" : "s"}. I kept the raw values out of this summary so the dashboard stays clean.`;
 }

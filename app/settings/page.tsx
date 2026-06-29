@@ -19,7 +19,7 @@ export default function SettingsPage() {
   const connections = getAvaConnections();
   const connectorSnapshots = getConnectorSnapshots();
   return (
-    <AvaPageShell eyebrow="Ava Settings" title="Settings" subtitle="Connection placeholders and preferences for future live integrations.">
+    <AvaPageShell eyebrow="Ava Settings" title="Settings" subtitle="I am tracking the connections I can use and the ones still waiting.">
       <section className="panel">
         <SectionHeader title="Detected Connections" action={<StatusPill tone="good">{connections.filter((connection) => connection.status === "Connected").length} live</StatusPill>} />
         <div className="connection-grid">
@@ -33,7 +33,7 @@ export default function SettingsPage() {
         </div>
       </section>
       <section className="grid settings-grid">
-        {settings.map((setting) => <article className="panel" key={setting}><SectionHeader title={setting} action={<StatusPill tone="warning">Placeholder</StatusPill>} /><p className="subtle">Configuration surface reserved. Secrets will stay server-side and will not be exposed to the browser.</p></article>)}
+        {settings.map((setting) => <article className="panel" key={setting}><SectionHeader title={setting} action={<StatusPill tone="warning">Placeholder</StatusPill>} /><p className="subtle">I am reserving this configuration surface. Secrets stay server-side and will not be exposed to the browser.</p></article>)}
       </section>
     </AvaPageShell>
   );

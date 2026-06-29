@@ -94,6 +94,7 @@ async function readTodoistTasks(filter: string) {
     tool: "todoist.list",
     parameters: { filter },
     user: "cody",
+    timeoutMs: 4500,
   });
   const todoistTasks = response.success ? extractTodoistTasks(response.data) : null;
   return { response, todoistTasks };

@@ -167,14 +167,14 @@ function summaryFor(accounts: AvaGmailAttentionAccount[]) {
   const unreadCount = accounts.reduce((sum, account) => sum + account.unreadCount, 0);
   const urgentCount = accounts.reduce((sum, account) => sum + account.urgentCount, 0);
 
-  if (!attentionCount) return "No priority Gmail items found.";
+  if (!attentionCount) return "I did not find priority Gmail items in the current scan.";
 
   const accountBreakdown = accounts
     .filter((account) => account.attentionCount > 0)
     .map((account) => `${account.label}: ${account.attentionCount}`)
     .join(", ");
 
-  return `Gmail has ${attentionCount} attention item${attentionCount === 1 ? "" : "s"} across ${accountBreakdown}. ${unreadCount} unread, ${urgentCount} urgent.`;
+  return `I found ${attentionCount} Gmail item${attentionCount === 1 ? "" : "s"} across ${accountBreakdown}. ${unreadCount} unread, ${urgentCount} urgent.`;
 }
 
 async function readAccount(account: GmailAccountId, label: string): Promise<AvaGmailAttentionAccount> {
@@ -186,6 +186,7 @@ async function readAccount(account: GmailAccountId, label: string): Promise<AvaG
       limit: 25,
     },
     user: "cody",
+    timeoutMs: 3000,
   });
 
   const messages = response.success ? extractMessages(response.data) : null;

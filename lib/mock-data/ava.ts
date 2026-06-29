@@ -49,34 +49,34 @@ export const automationSnapshot = {
   healthyWorkflows: 12,
   failedWorkflows: 1,
   warningWorkflows: 2,
-  latestFailure: "Morning standup delivery retry needed after outbound policy block.",
+  latestFailure: "I saw the morning standup delivery needs a retry after an outbound policy block.",
   recentErrors: [
     "Slack delivery returned a retryable network failure.",
     "One monitoring workflow missed its expected heartbeat.",
   ],
-  suggestedFix: "Review the failed execution, confirm webhook reachability, then retry from the approved local sender path.",
+  suggestedFix: "I would review the failed execution, confirm webhook reachability, then retry from the approved local sender path.",
 };
 
 export const intelligenceFeed = [
-  { id: "intel-1", timestamp: "8:05 AM", category: "calendar", title: "Two meeting blocks today", summary: "The first hard stop is at 11:30 AM, with a useful work block before lunch.", severity: "normal", action: "Review schedule" },
-  { id: "intel-2", timestamp: "8:12 AM", category: "task", title: "One overdue high-priority task", summary: "The automation review should be cleared before new build work starts.", severity: "high", action: "Open tasks" },
-  { id: "intel-3", timestamp: "8:18 AM", category: "weather", title: "Storm risk this evening", summary: "Rain chance rises later today, so travel buffers should be protected.", severity: "warning", action: "Check forecast" },
-  { id: "intel-4", timestamp: "8:24 AM", category: "automation", title: "Automation needs review", summary: "One workflow has a recent failure and two are in warning state.", severity: "warning", action: "Open Automations" },
-  { id: "intel-5", timestamp: "8:31 AM", category: "project", title: "Ava rebuild is the active build", summary: "The dashboard shell is the highest leverage project today.", severity: "normal", action: "Open projects" },
-  { id: "intel-6", timestamp: "8:40 AM", category: "email", title: "Inbox triage placeholder", summary: "Email connection is not live yet; this feed is ready for Gmail signals.", severity: "normal", action: "Connect Gmail" },
-  { id: "intel-7", timestamp: "8:47 AM", category: "market", title: "MarketBrief source gap", summary: "MarketBrief needs confirmed source inputs before live summaries.", severity: "normal", action: "Open project" },
-  { id: "intel-8", timestamp: "8:55 AM", category: "personal", title: "Protect one focus block", summary: "A clean 90-minute window is available after lunch.", severity: "normal", action: "Block time" },
+  { id: "intel-1", timestamp: "8:05 AM", category: "calendar", title: "I found two meeting blocks today", summary: "I see the first hard stop at 11:30 AM, with a useful work block before lunch.", severity: "normal", action: "Review schedule" },
+  { id: "intel-2", timestamp: "8:12 AM", category: "task", title: "I found one overdue high-priority task", summary: "I would clear the automation review before new build work starts.", severity: "high", action: "Open tasks" },
+  { id: "intel-3", timestamp: "8:18 AM", category: "weather", title: "I am watching storm risk this evening", summary: "I see rain chance rising later today, so I would protect travel buffers.", severity: "warning", action: "Check forecast" },
+  { id: "intel-4", timestamp: "8:24 AM", category: "automation", title: "I found an automation to review", summary: "I see one workflow with a recent failure and two in warning state.", severity: "warning", action: "Open Automations" },
+  { id: "intel-5", timestamp: "8:31 AM", category: "project", title: "I have Ava rebuild surfaced", summary: "I am keeping the dashboard shell as the highest leverage project today.", severity: "normal", action: "Open projects" },
+  { id: "intel-6", timestamp: "8:40 AM", category: "email", title: "I am ready for inbox triage", summary: "Email is not live yet, but I have the feed ready for Gmail signals.", severity: "normal", action: "Connect Gmail" },
+  { id: "intel-7", timestamp: "8:47 AM", category: "market", title: "I found a MarketBrief source gap", summary: "I need confirmed source inputs before I can produce live summaries.", severity: "normal", action: "Open project" },
+  { id: "intel-8", timestamp: "8:55 AM", category: "personal", title: "I found one focus block to protect", summary: "I see a clean 90-minute window available after lunch.", severity: "normal", action: "Block time" },
 ];
 
 export const dailyBrief = {
-  summary: "Ava found 2 events that need attention, 4 scheduled tasks due today, one automation to review, and a clean focus block after lunch.",
-  scheduleOverview: "Three events are on the calendar, with the next meeting at 11:30 AM.",
-  taskPriorities: "Clear the automation review first, then finish CHILL TECH proof notes and MarketBrief source planning.",
-  weatherImpact: "Storms may move in this evening. Keep outside errands early and avoid tight travel windows.",
-  businessPulse: "Ava and CHILL TECH Website are the active systems. MarketBrief is waiting on data-source decisions.",
+  summary: "Good morning, Cody. I found 2 events that need attention, 4 scheduled tasks due today, one automation to review, and a clean focus block after lunch.",
+  scheduleOverview: "I found three events on the calendar, with the next meeting at 11:30 AM.",
+  taskPriorities: "I would clear the automation review first, then finish CHILL TECH proof notes and MarketBrief source planning.",
+  weatherImpact: "I see storms may move in this evening. I would keep outside errands early and avoid tight travel windows.",
+  businessPulse: "I am keeping Ava and CHILL TECH Website surfaced as the active systems. MarketBrief is waiting on data-source decisions.",
   automationIssues: automationSnapshot.latestFailure,
-  suggestedFocus: "Use the morning for implementation and the early afternoon for review and documentation.",
-  personalNotes: "Protect the 12:15 PM focus block and keep the evening lighter if storms arrive.",
+  suggestedFocus: "I would use the morning for implementation and the early afternoon for review and documentation.",
+  personalNotes: "I would protect the 12:15 PM focus block and keep the evening lighter if storms arrive.",
 };
 
 export function taskGroups() {

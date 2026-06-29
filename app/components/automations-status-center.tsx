@@ -56,10 +56,10 @@ export async function AutomationsStatusCenter({ compact = false }: { compact?: b
                 </div>
                 <span className="badge">{item.urgency || item.severity}</span>
               </div>
-            )) : <p className="subtle">No unresolved Ava automation events.</p>}
+            )) : <p className="subtle">I do not see unresolved automation events right now.</p>}
           </div>
           <div className="ai-fix">
-            <div className="eyebrow">AI suggested fix</div>
+            <div className="eyebrow">What I would check</div>
             <p>{latestFailure}</p>
           </div>
         </div>

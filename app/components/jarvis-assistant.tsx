@@ -47,7 +47,7 @@ export function JarvisAssistant() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [bootstrap, setBootstrap] = useState<AssistantBootstrap | null>(null);
   const [messages, setMessages] = useState<Message[]>([
-    { id: "welcome", role: "ava", content: "Ask Ava is online. Ask what needs attention, what failed today, or which system should be connected next." },
+    { id: "welcome", role: "ava", content: "I am here, Cody. Ask me what needs attention, what failed, or which system I should keep closest." },
   ]);
   const drag = useRef<{ pointerId: number; offsetX: number; offsetY: number; moved: boolean } | null>(null);
 
@@ -118,7 +118,7 @@ export function JarvisAssistant() {
     setMessages((current) => [...current, {
       id: crypto.randomUUID(),
       role: "ava",
-      content: response.ok ? data.message : data.error ?? "Ava could not process that request.",
+      content: response.ok ? data.message : data.error ?? "I could not process that request.",
       tool: data.tool,
       approval: data.approval,
     }]);
@@ -137,7 +137,7 @@ export function JarvisAssistant() {
     const data = await response.json().catch(() => ({}));
     const decision = response.ok
       ? data.message ?? `Decision recorded: ${status}.`
-      : data.error ?? "Ava could not record that approval decision.";
+      : data.error ?? "I could not record that approval decision.";
     setMessages((current) => current.map((message) => message.approval?.id === approvalId ? { ...message, approval: undefined, content: decision } : message));
     setBootstrap(null);
   }
@@ -184,10 +184,10 @@ export function JarvisAssistant() {
                 <div className="approval-actions"><button type="button" onClick={() => decideApproval(message.approval?.id, "approved")}><Check size={13} /> Approve</button><button type="button" onClick={() => decideApproval(message.approval?.id, "denied")}><XCircle size={13} /> Deny</button></div>
               </div>}
             </article>)}
-            {busy && <article className="assistant-message ava"><div className="message-role">AVA</div><p className="typing">Analyzing request</p></article>}
+            {busy && <article className="assistant-message ava"><div className="message-role">AVA</div><p className="typing">I am checking that now</p></article>}
           </div>
           <form className="assistant-composer" onSubmit={sendMessage}>
-            <input value={input} onChange={(event) => setInput(event.target.value)} placeholder="Ask Ava what needs attention..." maxLength={4000} />
+            <input value={input} onChange={(event) => setInput(event.target.value)} placeholder="Ask me what needs attention..." maxLength={4000} />
             <button type="button" className="voice-button" disabled title="Voice architecture reserved for a future phase"><Mic size={16} /></button>
             <button type="button" className="send-button" disabled={busy || !input.trim()} onClick={() => sendMessage()} aria-label="Send request to Ava"><Send size={16} /></button>
           </form>
@@ -195,7 +195,7 @@ export function JarvisAssistant() {
 
         {activeTab === "activity" && <div className="assistant-scroll">
           <div className="assistant-section-title"><span>Activity log</span><span>{bootstrap?.activity.length ?? 0}</span></div>
-          {bootstrap?.activity.length ? bootstrap.activity.map((item) => <div className="assistant-list-item" key={item.activity_id}><Activity size={14} /><div><strong>{item.summary}</strong><span>{item.status}</span></div></div>) : <div className="assistant-empty">Activity will appear as Ava searches, drafts, requests approval, and executes approved tools.</div>}
+          {bootstrap?.activity.length ? bootstrap.activity.map((item) => <div className="assistant-list-item" key={item.activity_id}><Activity size={14} /><div><strong>{item.summary}</strong><span>{item.status}</span></div></div>) : <div className="assistant-empty">I will show activity here as I search, draft, request approval, and execute approved tools.</div>}
         </div>}
 
         {activeTab === "integrations" && <div className="assistant-scroll">

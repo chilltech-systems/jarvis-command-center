@@ -4,7 +4,7 @@ import { getAvaIntelligenceFeed } from "@/lib/ava/intelligence";
 export default async function IntelligenceFeedPage() {
   const intelligenceFeed = await getAvaIntelligenceFeed();
   return (
-    <AvaPageShell eyebrow="Ava Intelligence Feed" title="Intelligence Feed" subtitle="A chronological stream of signals across calendar, tasks, automations, projects, and personal context.">
+    <AvaPageShell eyebrow="Ava Intelligence Feed" title="Intelligence Feed" subtitle="I am collecting the signals I notice while working in the background.">
       <section className="panel">
         <SectionHeader title="Signal Timeline" action={<StatusPill>{intelligenceFeed.length} items</StatusPill>} />
         <div className="timeline">

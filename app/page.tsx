@@ -2,29 +2,31 @@ import Link from "next/link";
 import { AvaPageShell, SectionHeader, StatusPill } from "@/app/components/ava-shell";
 import { AutomationsStatusCenter } from "@/app/components/automations-status-center";
 import { dailyBrief } from "@/lib/mock-data/ava";
-import { getAvaSchedule, getAvaTasks } from "@/lib/ava/todoist";
+import { getAvaTasks } from "@/lib/ava/todoist";
 import { getAvaWeather } from "@/lib/ava/weather";
 import { getAvaProjects } from "@/lib/ava/projects";
 import { getAvaIntelligenceFeed } from "@/lib/ava/intelligence";
-import { getAvaDailyBrief } from "@/lib/ava/daily-brief";
 import { getAvaCompletedTasks } from "@/lib/ava/completed-tasks";
 
 export default async function Home() {
-  const [{ groups: groupedTasks, source: taskSource }, completedTasks, schedule, liveWeather, liveProjects, liveFeed, liveBrief] = await Promise.all([
+  const [{ groups: groupedTasks, source: taskSource }, completedTasks, liveWeather, liveProjects, liveFeed] = await Promise.all([
     getAvaTasks(),
     getAvaCompletedTasks(),
-    getAvaSchedule(),
     getAvaWeather(),
     Promise.resolve(getAvaProjects()),
     getAvaIntelligenceFeed(),
-    getAvaDailyBrief(),
   ]);
+  const schedule = {
+    todayItems: groupedTasks.scheduled.filter((task) => task.status !== "upcoming"),
+  };
+  const activeProjectCount = liveProjects.filter((project) => ["Active", "Ready", "Prototype"].includes(project.status)).length;
+  const snapshotSummary = `Good morning, Cody. I found ${groupedTasks.scheduled.length} scheduled Todoist item${groupedTasks.scheduled.length === 1 ? "" : "s"}, ${groupedTasks.overdue.length} overdue, ${activeProjectCount} active local project${activeProjectCount === 1 ? "" : "s"}, and ${liveWeather.condition.toLowerCase()} around ${liveWeather.temperature}° in ${liveWeather.location}. I also saw ${completedTasks.completedCount} Todoist task${completedTasks.completedCount === 1 ? "" : "s"} already completed today.`;
   return (
-    <AvaPageShell eyebrow="Ava Dashboard" title="Home" subtitle="What needs your attention right now.">
+    <AvaPageShell eyebrow="Ava Dashboard" title="Home" subtitle="I am watching the day quietly and surfacing what matters first.">
       <section className="grid home-grid">
         <div className="panel attention-panel">
           <SectionHeader title="Daily Snapshot" action={<StatusPill tone="warning">1 review</StatusPill>} />
-          <p className="snapshot-copy">{liveBrief.summary || dailyBrief.summary}</p>
+          <p className="snapshot-copy">{snapshotSummary || dailyBrief.summary}</p>
         </div>
         <div className="panel">
           <SectionHeader title="Weather" action={<span className="badge">{liveWeather.location}</span>} />
@@ -37,7 +39,7 @@ export default async function Home() {
           <SectionHeader title="Calendar Preview" />
           <div className="list">
             {schedule.todayItems.slice(0, 2).map((event) => <div className="row" key={event.id}><span className="dot" /><div><div className="row-title">{event.title}</div><div className="row-meta">{event.dueDate} · Priority {event.priority} · Todoist</div></div><span className="badge">{event.status.replace("_", " ")}</span></div>)}
-            {!schedule.todayItems.length ? <div className="row"><span className="dot normal" /><div><div className="row-title">No scheduled Todoist items today</div><div className="row-meta">Unscheduled items stay in Tasks.</div></div><span className="badge">clear</span></div> : null}
+            {!schedule.todayItems.length ? <div className="row"><span className="dot normal" /><div><div className="row-title">I do not see scheduled Todoist items today</div><div className="row-meta">I am keeping unscheduled items on the Tasks tab.</div></div><span className="badge">clear</span></div> : null}
             <div className="open-block">Open block: 12:15 PM - 1:45 PM</div>
           </div>
         </div>

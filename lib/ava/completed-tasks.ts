@@ -55,12 +55,25 @@ async function fetchTodoistCompletedActivity({ since, until }: { since: string; 
     date_to: until,
     limit: "100",
   });
-  const response = await fetch(`https://api.todoist.com/api/v1/activities?${params}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    cache: "no-store",
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 3000);
+  let response: Response;
+  try {
+    response = await fetch(`https://api.todoist.com/api/v1/activities?${params}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      cache: "no-store",
+      signal: controller.signal,
+    });
+  } catch (error) {
+    return {
+      completed: null,
+      error: error instanceof Error && error.name === "AbortError" ? "Todoist completed-task read timed out." : "Todoist completed-task read failed.",
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
@@ -119,11 +132,11 @@ function hasCompletionEvidence(task: TodoistCompletedTask) {
 }
 
 function completedSummary(tasks: AvaCompletedTask[]) {
-  if (!tasks.length) return "No Todoist tasks completed yet today.";
+  if (!tasks.length) return "I have not seen completed Todoist tasks yet today.";
   const titles = tasks.slice(0, 3).map((task) => task.title).join(", ");
   const suffix = tasks.length > 3 ? `, and ${tasks.length - 3} more` : "";
 
-  return `You completed ${tasks.length} Todoist task${tasks.length === 1 ? "" : "s"} today, including ${titles}${suffix}.`;
+  return `I saw ${tasks.length} Todoist task${tasks.length === 1 ? "" : "s"} completed today, including ${titles}${suffix}.`;
 }
 
 export async function getAvaCompletedTasks() {
@@ -140,11 +153,11 @@ export async function getAvaCompletedTasks() {
       error: null,
     };
   }
-
   const response = await callToolHub<TodoistCompletedResponse>({
     tool: "todoist.completed",
     parameters: { since, until, limit: 100 },
     user: "cody",
+    timeoutMs: 3000,
   });
   const completed = response.success ? extractCompletedTasks(response.data) : null;
   const completedToday = completed ? completed.filter(hasCompletionEvidence).map(mapCompletedTask) : [];

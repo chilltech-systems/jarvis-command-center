@@ -13,9 +13,9 @@ export async function getAvaDailyBrief() {
     Promise.resolve(getProjectSummary()),
   ]);
 
-  const completedClause = completedTasks.completedCount > 0 ? ` You completed ${completedTasks.completedCount} Todoist task${completedTasks.completedCount === 1 ? "" : "s"} today.` : "";
+  const completedClause = completedTasks.completedCount > 0 ? ` I also saw ${completedTasks.completedCount} Todoist task${completedTasks.completedCount === 1 ? "" : "s"} already completed today.` : "";
   const overdueLabel = `${tasks.groups.overdue.length} item${tasks.groups.overdue.length === 1 ? "" : "s"} ${tasks.groups.overdue.length === 1 ? "is" : "are"} overdue`;
-  const summary = `${getCentralGreeting()}, Cody. Ava found ${tasks.groups.scheduled.length} scheduled Todoist item${tasks.groups.scheduled.length === 1 ? "" : "s"} for your calendar, ${tasks.groups.overdue.length} overdue, ${projects.active} active local project${projects.active === 1 ? "" : "s"}, and ${weather.condition.toLowerCase()} around ${weather.temperature}° in ${weather.location}.${completedClause}`;
+  const summary = `${getCentralGreeting()}, Cody. I found ${tasks.groups.scheduled.length} scheduled Todoist item${tasks.groups.scheduled.length === 1 ? "" : "s"} on your calendar, ${tasks.groups.overdue.length} overdue, ${projects.active} active local project${projects.active === 1 ? "" : "s"}, and ${weather.condition.toLowerCase()} around ${weather.temperature}° in ${weather.location}.${completedClause}`;
 
   return {
     source: {
@@ -26,14 +26,14 @@ export async function getAvaDailyBrief() {
       automations: "supabase-n8n",
     },
     summary,
-    scheduleOverview: `Todoist is the schedule source. ${tasks.groups.today.length} scheduled items are due today and ${tasks.groups.upcoming.length} are upcoming.`,
-    taskPriorities: `${tasks.groups.highPriority.filter((task) => task.hasSchedule).length} scheduled high-priority items are active. ${overdueLabel}. ${completedTasks.completedSummary}`,
-    weatherImpact: `${weather.condition}, high ${weather.high}°, low ${weather.low}°, rain chance ${weather.rainChance}%. ${weather.recommendation}`,
-    businessPulse: `${projects.count} local projects are registered in Ava. ${projects.active} are active, ready, or prototyped.`,
-    automationIssues: automationSnapshot.latestFailure,
+    scheduleOverview: `I am using Todoist as the schedule source. I found ${tasks.groups.today.length} scheduled item${tasks.groups.today.length === 1 ? "" : "s"} due today and ${tasks.groups.upcoming.length} coming up after that.`,
+    taskPriorities: `I am watching ${tasks.groups.highPriority.filter((task) => task.hasSchedule).length} scheduled high-priority item${tasks.groups.highPriority.filter((task) => task.hasSchedule).length === 1 ? "" : "s"}. ${overdueLabel}. ${completedTasks.completedSummary}`,
+    weatherImpact: `I am tracking ${weather.condition.toLowerCase()} today: high ${weather.high}°, low ${weather.low}°, rain chance ${weather.rainChance}%. ${weather.recommendation}`,
+    businessPulse: `I found ${projects.count} local project records. ${projects.active} are active, ready, or prototyped, so I am keeping those closest to the surface.`,
+    automationIssues: `I am keeping an eye on this automation note: ${automationSnapshot.latestFailure}`,
     suggestedFocus: tasks.groups.overdue.length
-      ? "Clear the overdue Todoist queue first, then move into project work."
-      : "Use the first focused block for project work, then review automations.",
-    personalNotes: "Todoist, weather, local projects, n8n automation status, and connection inventory are now live in Ava local preview.",
+      ? "I would clear the overdue Todoist queue first, then move into project work."
+      : "I would use the first focused block for project work, then do an automation pass.",
+    personalNotes: "I have Todoist, weather, local projects, n8n automation status, and connection inventory running in the local preview.",
   };
 }

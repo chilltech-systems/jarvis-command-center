@@ -3,7 +3,7 @@ import { AutomationsStatusCenter } from "@/app/components/automations-status-cen
 
 export default function AutomationsPage() {
   return (
-    <AvaPageShell eyebrow="Ava Automations" title="Automations" subtitle="Live n8n workflow health, failures, review signals, and operational telemetry.">
+    <AvaPageShell eyebrow="Ava Automations" title="Automations" subtitle="I am watching n8n health, failures, review signals, and operational telemetry.">
       <AutomationsStatusCenter />
     </AvaPageShell>
   );

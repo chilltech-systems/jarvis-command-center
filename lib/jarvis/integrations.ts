@@ -1,4 +1,5 @@
 import type { JarvisIntegration } from "@/lib/jarvis/types";
+import { connectedToolHubAccounts, toolHubConfigured } from "@/lib/jarvis/tool-hub";
 
 export const JARVIS_INTEGRATIONS: JarvisIntegration[] = [
   { key: "supabase", name: "Supabase", category: "Data", status: "Connected", permission: "execute", credentialEnvironmentKeys: ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"], capabilities: ["Authentication", "Monitoring data", "Assistant audit storage"], notes: "Primary Ava data and authentication layer." },
@@ -20,14 +21,29 @@ export const JARVIS_INTEGRATIONS: JarvisIntegration[] = [
 export function discoverIntegrationCredentials() {
   return JARVIS_INTEGRATIONS.map((integration) => {
     const configuredKeys = integration.credentialEnvironmentKeys.filter((key) => Boolean(process.env[key]));
-    const credentialsReady = integration.credentialEnvironmentKeys.length > 0
-      && configuredKeys.length === integration.credentialEnvironmentKeys.length;
+    const serviceKey: Record<string, string> = {
+      gmail: "gmail",
+      google_calendar: "googleCalendar",
+      google_drive: "googleDrive",
+      slack: "slack",
+      business_data: "googleSheets",
+      twilio: "twilio",
+    };
+    const connectedAccounts = serviceKey[integration.key] ? connectedToolHubAccounts(serviceKey[integration.key]) : [];
+    const hasToolHubCredentials = toolHubConfigured() && connectedAccounts.length > 0;
+    const credentialsReady = hasToolHubCredentials || (integration.credentialEnvironmentKeys.length > 0
+      && configuredKeys.length === integration.credentialEnvironmentKeys.length);
+    const status = hasToolHubCredentials && ["Credential Needed", "Ready To Configure", "Future", "In Progress"].includes(integration.status)
+      ? "Connected"
+      : integration.status;
 
     return {
       ...integration,
+      status,
       configuredCredentialCount: configuredKeys.length,
-      requiredCredentialCount: integration.credentialEnvironmentKeys.length,
+      requiredCredentialCount: hasToolHubCredentials ? connectedAccounts.length : integration.credentialEnvironmentKeys.length,
       credentialsReady,
+      connectedAccounts: connectedAccounts.map((account) => account.key),
     };
   });
 }

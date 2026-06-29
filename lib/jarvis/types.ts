@@ -29,6 +29,7 @@ export type JarvisIntegration = {
   credentialEnvironmentKeys: string[];
   capabilities: string[];
   notes: string;
+  connectedAccounts?: string[];
 };
 
 export type AssistantApproval = {
