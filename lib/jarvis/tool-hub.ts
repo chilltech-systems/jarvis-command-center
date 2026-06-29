@@ -1,3 +1,5 @@
+import fs from "node:fs";
+
 type ToolHubRequest = {
   tool: string;
   parameters?: Record<string, unknown>;
@@ -7,9 +9,11 @@ type ToolHubRequest = {
 export type TodoistTask = {
   id?: string;
   content?: string;
+  url?: string;
   due?: {
     string?: string;
     date?: string;
+    datetime?: string;
   } | null;
   priority?: number;
 };
@@ -29,18 +33,43 @@ type ToolHubResponse<T = unknown> = {
   error?: string;
 };
 
+function parseEnvFile(path: string) {
+  try {
+    const env: Record<string, string> = {};
+    for (const line of fs.readFileSync(path, "utf8").split(/\r?\n/)) {
+      if (!line.trim() || line.trim().startsWith("#")) continue;
+      const index = line.indexOf("=");
+      if (index === -1) continue;
+      env[line.slice(0, index).trim()] = line.slice(index + 1).trim();
+    }
+    return env;
+  } catch {
+    return {};
+  }
+}
+
+function toolHubSettings() {
+  const n8nEnv = parseEnvFile("/Users/c.hill/Documents/Projects/.secrets/n8n.env");
+  const tokenEnv = parseEnvFile("/Users/c.hill/Documents/Projects/.secrets/jarvis-tool-hub.env");
+  const baseUrl = n8nEnv.N8N_BASE_URL?.replace(/\/api\/v1\/?$/, "");
+  return {
+    url: process.env.JARVIS_TOOL_HUB_URL || (baseUrl ? `${baseUrl}/webhook/jarvis-tools` : ""),
+    token: process.env.JARVIS_TOOL_HUB_TOKEN || tokenEnv.JARVIS_TOKEN || "",
+  };
+}
+
 export function toolHubConfigured() {
-  return Boolean(process.env.JARVIS_TOOL_HUB_URL && process.env.JARVIS_TOOL_HUB_TOKEN);
+  const { url, token } = toolHubSettings();
+  return Boolean(url && token);
 }
 
 export async function callToolHub<T = unknown>({ tool, parameters = {}, user = "cody" }: ToolHubRequest): Promise<ToolHubResponse<T>> {
-  const url = process.env.JARVIS_TOOL_HUB_URL;
-  const token = process.env.JARVIS_TOOL_HUB_TOKEN;
+  const { url, token } = toolHubSettings();
   if (!url || !token) {
     return {
       success: false,
       tool,
-      error: "Jarvis Tool Hub is not configured.",
+      error: "Ava Tool Hub is not configured.",
     };
   }
 

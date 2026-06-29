@@ -5,7 +5,7 @@ const root = path.resolve(__dirname, "..");
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 const errors = [];
 
-const component = read("app/components/jarvis-assistant.tsx");
+const component = read("app/components/ava-assistant.tsx");
 const assistantRoute = read("app/api/jarvis/assistant/route.ts");
 const approvalRoute = read("app/api/jarvis/approvals/route.ts");
 const tools = read("lib/jarvis/tool-registry.ts");
@@ -15,7 +15,7 @@ const openai = read("lib/jarvis/openai.ts");
 const migration = read("supabase/migrations/20260615000100_jarvis_assistant_phase1.sql");
 const parserEdgeCases = read("docs/jarvis-tool-hub-parser-routing-edge-cases.md");
 
-for (const value of ["jarvis-orb", "assistant-panel", "localStorage", "approval-card", "Integration inventory"]) {
+for (const value of ["ava-orb", "assistant-panel", "localStorage", "approval-card", "Integration inventory"]) {
   if (!component.includes(value)) errors.push(`assistant UI is missing ${value}`);
 }
 
@@ -95,9 +95,9 @@ for (const [label, content] of [["tools", tools], ["toolHub", toolHub], ["integr
 }
 
 if (errors.length) {
-  console.error("Jarvis Assistant foundation validation failed:");
+  console.error("Ava Assistant foundation validation failed:");
   errors.forEach((error) => console.error(`- ${error}`));
   process.exit(1);
 }
 
-console.log("Jarvis Assistant Phase 1 foundation validation passed.");
+console.log("Ava Assistant foundation validation passed.");

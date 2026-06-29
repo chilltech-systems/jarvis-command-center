@@ -6,7 +6,7 @@ const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 const errors = [];
 
 const time = read("lib/time.ts");
-const dashboard = read("app/page.tsx");
+const automationsStatus = read("app/components/automations-status-center.tsx");
 const workflowDetail = read("app/workflows/[id]/page.tsx");
 
 for (const required of [
@@ -19,7 +19,7 @@ for (const required of [
 }
 
 for (const [label, content] of [
-  ["dashboard", dashboard],
+  ["automations status center", automationsStatus],
   ["workflow detail", workflowDetail],
 ]) {
   if (!content.includes('from "@/lib/time"')) errors.push(`${label} does not use the Central-time helper`);
@@ -30,9 +30,9 @@ if (workflowDetail.includes('e.started_at || "Trigger error without start time"'
 }
 
 if (errors.length) {
-  console.error("Jarvis HUD timezone validation failed:");
+  console.error("Ava automation HUD timezone validation failed:");
   errors.forEach((error) => console.error(`- ${error}`));
   process.exit(1);
 }
 
-console.log("Jarvis HUD Central-time display validation passed.");
+console.log("Ava automation HUD Central-time display validation passed.");

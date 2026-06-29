@@ -36,11 +36,11 @@ export default function LoginPage() {
       <section className="login-card">
         <div className="eyebrow">Restricted operations interface</div>
         <h1>Identity Check</h1>
-        <p className="subtle">Sign in with an approved Google account to access Jarvis telemetry.</p>
+        <p className="subtle">Sign in with an approved Google account to access Ava telemetry.</p>
         <button type="button" onClick={login} disabled={loading} style={{ marginTop: 12 }}>
           {loading ? "CONNECTING TO GOOGLE..." : "SIGN IN WITH GOOGLE"}
         </button>
-        <p className="login-hint">Jarvis will ask which Google account to use on every new sign-in.</p>
+        <p className="login-hint">Ava will ask which Google account to use on every new sign-in.</p>
         {message && <p className="auth-error">{message}</p>}
       </section>
     </main>

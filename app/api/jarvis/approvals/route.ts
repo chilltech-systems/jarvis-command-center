@@ -22,7 +22,7 @@ export async function PATCH(request: Request) {
 
   if (error || !data) return NextResponse.json({ error: "Approval was not found or already decided" }, { status: 409 });
 
-  let message = `Jarvis action ${status}: ${data.action}`;
+  let message = `Ava action ${status}: ${data.action}`;
   let executionStatus = status;
 
   if (status === "approved" && data.tool_call_id) {

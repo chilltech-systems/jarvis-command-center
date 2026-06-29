@@ -48,7 +48,7 @@ export async function POST(request: Request) {
   const tool = findToolForMessage(message);
   let response: AssistantResponse = {
     message: "I have recorded that request. Phase 1 is online, and I can route it once the matching capability is connected.",
-    activity: "Jarvis received an assistant request",
+    activity: "Ava received an assistant request",
   };
   let toolInputSummary: Record<string, unknown> = { request: message };
 
@@ -59,7 +59,7 @@ export async function POST(request: Request) {
       message: data
         ? `Current automation status: ${data.active_workflows ?? 0} active workflows, ${data.executions_today ?? 0} executions today, ${data.errors_today ?? 0} errors, and ${data.open_issues ?? 0} open issues.`
         : "The monitoring connection is available, but no overview metrics were returned.",
-      activity: "Jarvis summarized n8n status",
+      activity: "Ava summarized n8n status",
     };
   } else if (tool?.name === "todoist.list") {
     const toolHubResponse = await callToolHub<TodoistTask[]>({
@@ -73,7 +73,7 @@ export async function POST(request: Request) {
       message: toolHubResponse.success && todoistTasks
         ? formatTodoistTasks(todoistTasks)
         : `Todoist is connected, but the Tool Hub request failed: ${toolHubResponse.error || "Unexpected Tool Hub response format"}`,
-      activity: toolHubResponse.success ? "Jarvis listed Todoist tasks" : "Jarvis encountered a Todoist Tool Hub error",
+      activity: toolHubResponse.success ? "Ava listed Todoist tasks" : "Ava encountered a Todoist Tool Hub error",
     };
   } else if (tool?.name === "todoist.create") {
     const parameters = parseTodoistCreateRequest(message);
@@ -81,7 +81,7 @@ export async function POST(request: Request) {
       response = {
         tool,
         message: "Tell me the task you want added to Todoist, for example: add task Follow up with Drew tomorrow.",
-        activity: "Jarvis requested Todoist task details",
+        activity: "Ava requested Todoist task details",
       };
     } else {
       toolInputSummary = { request: message, parameters };
@@ -94,7 +94,7 @@ export async function POST(request: Request) {
           status: "pending",
         },
         message: "This Todoist task requires approval before I create it.",
-        activity: "Jarvis requested approval for todoist.create",
+        activity: "Ava requested approval for todoist.create",
       };
     }
   } else if (tool?.name === "create_codex_task") {
@@ -102,8 +102,8 @@ export async function POST(request: Request) {
     if (!codexPackage) {
       response = {
         tool,
-        message: "Tell me what you want Codex to build or fix, for example: create a Codex task to add Google Calendar read access to Jarvis.",
-        activity: "Jarvis requested Codex task details",
+        message: "Tell me what you want Codex to build or fix, for example: create a Codex task to add Google Calendar read access to Ava.",
+        activity: "Ava requested Codex task details",
       };
     } else {
       toolInputSummary = { request: message, codexPackage };
@@ -116,27 +116,27 @@ export async function POST(request: Request) {
           status: "pending",
         },
         message: `${formatCodexPromptPackage(codexPackage)}\n\nApprove this request to queue it for the local Codex runner.`,
-        activity: "Jarvis requested approval for create_codex_task",
+        activity: "Ava requested approval for create_codex_task",
       };
     }
   } else if (tool && tool.status === "credential_needed") {
     response = {
       tool,
       message: `${tool.description} The ${tool.integration} credential still needs to be connected before I can use this capability.`,
-      activity: `Jarvis identified a credential requirement for ${tool.integration}`,
+      activity: `Ava identified a credential requirement for ${tool.integration}`,
     };
   } else if (tool && !toolCanRunWithoutApproval(tool)) {
     response = {
       tool,
       approval: approvalForTool(tool, message),
       message: "This action requires approval. I prepared the request but did not execute anything.",
-      activity: `Jarvis requested approval for ${tool.name}`,
+      activity: `Ava requested approval for ${tool.name}`,
     };
   } else if (tool) {
     response = {
       tool,
       message: `${tool.description} The Phase 1 tool contract is ready; the implementation handler is the next integration step.`,
-      activity: `Jarvis routed request to ${tool.name}`,
+      activity: `Ava routed request to ${tool.name}`,
     };
   } else if (openAIConfigured()) {
     try {
@@ -148,14 +148,14 @@ export async function POST(request: Request) {
       if (modelResponse) {
         response = {
           message: modelResponse,
-          activity: "Jarvis answered with OpenAI reasoning",
+          activity: "Ava answered with OpenAI reasoning",
         };
       }
     } catch (error) {
-      console.error("Jarvis OpenAI request failed", error);
+      console.error("Ava OpenAI request failed", error);
       response = {
         message: "My OpenAI reasoning connection encountered an error. The deterministic monitoring and approval systems remain online.",
-        activity: "Jarvis encountered an OpenAI reasoning error",
+        activity: "Ava encountered an OpenAI reasoning error",
       };
     }
   }

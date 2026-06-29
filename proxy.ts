@@ -21,9 +21,13 @@ export async function proxy(request: NextRequest) {
   );
 
   const { data: { user } } = await supabase.auth.getUser();
+  const isLocalDevPreview = process.env.NODE_ENV === "development"
+    && ["localhost", "127.0.0.1", "::1"].includes(request.nextUrl.hostname)
+    && !request.nextUrl.pathname.startsWith("/api/jarvis");
   const publicPath = request.nextUrl.pathname.startsWith("/login")
     || request.nextUrl.pathname.startsWith("/auth")
-    || request.nextUrl.pathname.startsWith("/unauthorized");
+    || request.nextUrl.pathname.startsWith("/unauthorized")
+    || isLocalDevPreview;
 
   if (!user && !publicPath) {
     return NextResponse.redirect(new URL("/login", request.url));

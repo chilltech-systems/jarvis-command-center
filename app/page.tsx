@@ -1,27 +1,82 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
-import { formatCentralSignal, formatCentralTime } from "@/lib/time";
+import { AvaPageShell, SectionHeader, StatusPill } from "@/app/components/ava-shell";
+import { AutomationsStatusCenter } from "@/app/components/automations-status-center";
+import { dailyBrief } from "@/lib/mock-data/ava";
+import { getAvaSchedule, getAvaTasks } from "@/lib/ava/todoist";
+import { getAvaWeather } from "@/lib/ava/weather";
+import { getAvaProjects } from "@/lib/ava/projects";
+import { getAvaIntelligenceFeed } from "@/lib/ava/intelligence";
+import { getAvaDailyBrief } from "@/lib/ava/daily-brief";
+import { getAvaCompletedTasks } from "@/lib/ava/completed-tasks";
 
-export default async function Dashboard() {
-  const supabase = await createClient();
-  const [{ data: overviewRows }, { data: activity }, { data: issues }, { data: workflows }] = await Promise.all([
-    supabase.from("jarvis_hud_overview").select("*").limit(1),
-    supabase.from("jarvis_recent_activity").select("*").order("occurred_at", { ascending: false }).limit(12),
-    supabase.from("jarvis_open_issues").select("*").order("occurred_at", { ascending: false }).limit(8),
-    supabase.from("jarvis_workflow_health").select("*").order("name").limit(50),
+export default async function Home() {
+  const [{ groups: groupedTasks, source: taskSource }, completedTasks, schedule, liveWeather, liveProjects, liveFeed, liveBrief] = await Promise.all([
+    getAvaTasks(),
+    getAvaCompletedTasks(),
+    getAvaSchedule(),
+    getAvaWeather(),
+    Promise.resolve(getAvaProjects()),
+    getAvaIntelligenceFeed(),
+    getAvaDailyBrief(),
   ]);
-  const o = overviewRows?.[0] ?? {};
-  const successRate = Number(o.executions_today) ? Math.round((Number(o.successes_today) / Number(o.executions_today)) * 100) : 100;
+  return (
+    <AvaPageShell eyebrow="Ava Dashboard" title="Home" subtitle="What needs your attention right now.">
+      <section className="grid home-grid">
+        <div className="panel attention-panel">
+          <SectionHeader title="Daily Snapshot" action={<StatusPill tone="warning">1 review</StatusPill>} />
+          <p className="snapshot-copy">{liveBrief.summary || dailyBrief.summary}</p>
+        </div>
+        <div className="panel">
+          <SectionHeader title="Weather" action={<span className="badge">{liveWeather.location}</span>} />
+          <div className="weather-value">{liveWeather.temperature}°</div>
+          <div className="row-title">{liveWeather.condition}</div>
+          <div className="row-meta">High {liveWeather.high}° · Low {liveWeather.low}° · Rain {liveWeather.rainChance}%</div>
+          <p className="subtle">{liveWeather.recommendation}</p>
+        </div>
+        <div className="panel">
+          <SectionHeader title="Calendar Preview" />
+          <div className="list">
+            {schedule.todayItems.slice(0, 2).map((event) => <div className="row" key={event.id}><span className="dot" /><div><div className="row-title">{event.title}</div><div className="row-meta">{event.dueDate} · Priority {event.priority} · Todoist</div></div><span className="badge">{event.status.replace("_", " ")}</span></div>)}
+            {!schedule.todayItems.length ? <div className="row"><span className="dot normal" /><div><div className="row-title">No scheduled Todoist items today</div><div className="row-meta">Unscheduled items stay in Tasks.</div></div><span className="badge">clear</span></div> : null}
+            <div className="open-block">Open block: 12:15 PM - 1:45 PM</div>
+          </div>
+        </div>
+        <div className="panel">
+          <SectionHeader title="Tasks Preview" action={<StatusPill tone={taskSource === "live-todoist" ? "good" : "warning"}>{taskSource === "live-todoist" ? "Live" : "Mock"}</StatusPill>} />
+          <div className="mini-stats">
+            <span>Overdue<strong>{groupedTasks.overdue.length}</strong></span>
+            <span>Today<strong>{groupedTasks.today.length}</strong></span>
+            <span>Next 3 days<strong>{groupedTasks.nextThreeDays.length}</strong></span>
+            <span>Done<strong>{completedTasks.completedCount}</strong></span>
+          </div>
+        </div>
+      </section>
 
-  return <main className="shell">
-    <section className="hero"><div><div className="eyebrow">CHILL TECH Operational Intelligence</div><h1>Automation Command</h1><div className="subtle">Live n8n executions, business pulses, and operational issues.</div></div><div className="badge">Central Time · CST/CDT</div></section>
-    <section className="grid metrics">
-      {[["Active", o.active_workflows], ["Healthy", o.healthy_workflows], ["Unknown", o.unknown_workflows], ["Executions", o.executions_today], ["Success Rate", `${successRate}%`], ["Open Issues", o.open_issues]].map(([label, value]) => <div className="metric" key={label}><div className="metric-label">{label}</div><div className="metric-value">{String(value ?? 0)}</div></div>)}
-    </section>
-    <section className="grid columns">
-      <div className="panel"><div className="panel-title"><span>Live Activity Stream</span><span>{activity?.length ?? 0} SIGNALS</span></div><div className="list">{activity?.map((item) => <div className="row" key={`${item.activity_source}-${item.activity_id}`}><span className={`dot ${item.severity} ${item.status}`} /><div><div className="row-title">{item.source_name}</div><div className="row-meta">{item.summary} · {formatCentralSignal(item.occurred_at)}</div></div><span className="badge">{item.status}</span></div>)}</div></div>
-      <div className="panel"><div className="panel-title"><span>Requires Attention</span><span>{issues?.length ?? 0} OPEN</span></div><div className="list">{issues?.length ? issues.map((item) => <div className="row" key={item.event_id}><span className={`dot ${item.severity}`} /><div><div className="row-title">{item.source_workflow}</div><div className="row-meta">{item.summary} · {formatCentralTime(item.occurred_at)}</div></div><span className="badge">{item.urgency || item.severity}</span></div>) : <p className="subtle">No unresolved Jarvis events.</p>}</div></div>
-    </section>
-    <section className="grid workflow-grid">{workflows?.map((w) => <Link className="workflow-card" href={`/workflows/${w.workflow_id}`} key={w.workflow_id}><div className="workflow-name"><span>{w.name}</span><span className={`dot ${w.current_health}`} /></div><div className="row-meta">{w.business_area} · {w.monitoring_mode}</div><div className="workflow-stats"><span>Runs<strong>{w.executions_today}</strong></span><span>Errors<strong>{w.errors_today}</strong></span><span className="signal-stat">Last signal<strong>{formatCentralSignal(w.last_pulse_at || w.last_execution_at)}</strong></span></div></Link>)}</section>
-  </main>;
+      <section className="panel home-section">
+        <SectionHeader title="Automation Health Preview" action={<Link className="badge" href="/automations">Open Automations</Link>} />
+        <AutomationsStatusCenter compact />
+      </section>
+
+      <section className="grid columns home-section">
+        <div className="panel">
+          <SectionHeader title="Project Pulse" action={<Link className="badge" href="/projects">All Projects</Link>} />
+          <div className="project-strip">
+            {liveProjects.slice(0, 7).map((project) => (
+              <div className="project-mini" key={project.name}>
+                <div className="row-title">{project.name}</div>
+                <div className="row-meta">{project.status} · {project.phase}</div>
+                <p>{project.nextAction}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="panel">
+          <SectionHeader title="Intelligence Feed Preview" action={<Link className="badge" href="/intelligence-feed">Open Feed</Link>} />
+          <div className="list">
+            {liveFeed.slice(0, 5).map((item) => <div className="row" key={item.id}><span className={`dot ${item.severity}`} /><div><div className="row-title">{item.title}</div><div className="row-meta">{item.timestamp} · {item.category} · {item.summary}</div></div></div>)}
+          </div>
+        </div>
+      </section>
+    </AvaPageShell>
+  );
 }

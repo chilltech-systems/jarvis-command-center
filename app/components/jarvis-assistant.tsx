@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import type { AssistantApproval, JarvisIntegration, JarvisToolDefinition } from "@/lib/jarvis/types";
 
 type Position = { x: number; y: number };
-type Message = { id: string; role: "jarvis" | "user"; content: string; tool?: JarvisToolDefinition; approval?: AssistantApproval };
+type Message = { id: string; role: "ava" | "user"; content: string; tool?: JarvisToolDefinition; approval?: AssistantApproval };
 type ActivityItem = { activity_id: string; summary: string; status: string; created_at: string };
 type AssistantBootstrap = {
   tools: JarvisToolDefinition[];
@@ -18,7 +18,7 @@ type AssistantBootstrap = {
 };
 
 const ORB_SIZE = 62;
-const STORAGE_KEY = "jarvis-orb-position-v1";
+const STORAGE_KEY = "ava-orb-position-v1";
 
 function clampPosition(position: Position) {
   return {
@@ -47,7 +47,7 @@ export function JarvisAssistant() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [bootstrap, setBootstrap] = useState<AssistantBootstrap | null>(null);
   const [messages, setMessages] = useState<Message[]>([
-    { id: "welcome", role: "jarvis", content: "Jarvis Assistant Phase 1 is online. Ask what failed today, what needs attention, or which capability should be connected next." },
+    { id: "welcome", role: "ava", content: "Ask Ava is online. Ask what needs attention, what failed today, or which system should be connected next." },
   ]);
   const drag = useRef<{ pointerId: number; offsetX: number; offsetY: number; moved: boolean } | null>(null);
 
@@ -70,7 +70,7 @@ export function JarvisAssistant() {
       if (data.messages.length) {
         setMessages(data.messages.map((message) => ({
           id: message.message_id,
-          role: message.role === "assistant" ? "jarvis" : "user",
+          role: message.role === "assistant" ? "ava" : "user",
           content: message.content,
           approval: message.metadata?.approval,
           tool: data.tools.find((tool) => tool.name === message.metadata?.tool),
@@ -117,8 +117,8 @@ export function JarvisAssistant() {
     const data = await response.json();
     setMessages((current) => [...current, {
       id: crypto.randomUUID(),
-      role: "jarvis",
-      content: response.ok ? data.message : data.error ?? "Jarvis could not process that request.",
+      role: "ava",
+      content: response.ok ? data.message : data.error ?? "Ava could not process that request.",
       tool: data.tool,
       approval: data.approval,
     }]);
@@ -137,7 +137,7 @@ export function JarvisAssistant() {
     const data = await response.json().catch(() => ({}));
     const decision = response.ok
       ? data.message ?? `Decision recorded: ${status}.`
-      : data.error ?? "Jarvis could not record that approval decision.";
+      : data.error ?? "Ava could not record that approval decision.";
     setMessages((current) => current.map((message) => message.approval?.id === approvalId ? { ...message, approval: undefined, content: decision } : message));
     setBootstrap(null);
   }
@@ -146,21 +146,21 @@ export function JarvisAssistant() {
     <>
       <button
         type="button"
-        className={`jarvis-orb ${open ? "assistant-open" : ""}`}
-        aria-label="Open Jarvis Assistant"
+        className={`ava-orb ${open ? "assistant-open" : ""}`}
+        aria-label="Open Ask Ava"
         suppressHydrationWarning
         style={{ left: position.x, top: position.y }}
         onPointerDown={pointerDown}
         onPointerMove={pointerMove}
         onPointerUp={pointerUp}
       >
-        <span className="jarvis-orb-core"><Sparkles size={20} /></span>
+        <span className="ava-orb-core"><Sparkles size={20} /></span>
       </button>
       <div className={`assistant-scrim ${open ? "open" : ""}`} onClick={() => setOpen(false)} />
       <aside className={`assistant-panel ${open ? "open" : ""}`} aria-hidden={!open}>
         <header className="assistant-header">
-          <div><div className="eyebrow">Personal operating system</div><h2><Bot size={20} /> Jarvis Assistant</h2></div>
-          <button type="button" className="icon-button" onClick={() => setOpen(false)} aria-label="Close Jarvis Assistant"><X size={18} /></button>
+          <div><div className="eyebrow">Personal operating system</div><h2><Bot size={20} /> Ask Ava</h2></div>
+          <button type="button" className="icon-button" onClick={() => setOpen(false)} aria-label="Close Ask Ava"><X size={18} /></button>
         </header>
         <div className="assistant-status">
           <span><CircleDot size={12} /> Phase 1 online</span>
@@ -175,7 +175,7 @@ export function JarvisAssistant() {
         {activeTab === "chat" && <div className="assistant-chat">
           <div className="assistant-messages">
             {messages.map((message) => <article key={message.id} className={`assistant-message ${message.role}`}>
-              <div className="message-role">{message.role === "jarvis" ? "JARVIS" : "CODY"}</div>
+              <div className="message-role">{message.role === "ava" ? "AVA" : "CODY"}</div>
               <p>{message.content}</p>
               {message.tool && <div className="tool-chip"><CircleDot size={11} /> {message.tool.name} · {message.tool.permission}</div>}
               {message.approval && <div className="approval-card">
@@ -184,18 +184,18 @@ export function JarvisAssistant() {
                 <div className="approval-actions"><button type="button" onClick={() => decideApproval(message.approval?.id, "approved")}><Check size={13} /> Approve</button><button type="button" onClick={() => decideApproval(message.approval?.id, "denied")}><XCircle size={13} /> Deny</button></div>
               </div>}
             </article>)}
-            {busy && <article className="assistant-message jarvis"><div className="message-role">JARVIS</div><p className="typing">Analyzing request</p></article>}
+            {busy && <article className="assistant-message ava"><div className="message-role">AVA</div><p className="typing">Analyzing request</p></article>}
           </div>
           <form className="assistant-composer" onSubmit={sendMessage}>
-            <input value={input} onChange={(event) => setInput(event.target.value)} placeholder="Ask Jarvis what needs attention..." maxLength={4000} />
+            <input value={input} onChange={(event) => setInput(event.target.value)} placeholder="Ask Ava what needs attention..." maxLength={4000} />
             <button type="button" className="voice-button" disabled title="Voice architecture reserved for a future phase"><Mic size={16} /></button>
-            <button type="button" className="send-button" disabled={busy || !input.trim()} onClick={() => sendMessage()} aria-label="Send request to Jarvis"><Send size={16} /></button>
+            <button type="button" className="send-button" disabled={busy || !input.trim()} onClick={() => sendMessage()} aria-label="Send request to Ava"><Send size={16} /></button>
           </form>
         </div>}
 
         {activeTab === "activity" && <div className="assistant-scroll">
           <div className="assistant-section-title"><span>Activity log</span><span>{bootstrap?.activity.length ?? 0}</span></div>
-          {bootstrap?.activity.length ? bootstrap.activity.map((item) => <div className="assistant-list-item" key={item.activity_id}><Activity size={14} /><div><strong>{item.summary}</strong><span>{item.status}</span></div></div>) : <div className="assistant-empty">Activity will appear as Jarvis searches, drafts, requests approval, and executes approved tools.</div>}
+          {bootstrap?.activity.length ? bootstrap.activity.map((item) => <div className="assistant-list-item" key={item.activity_id}><Activity size={14} /><div><strong>{item.summary}</strong><span>{item.status}</span></div></div>) : <div className="assistant-empty">Activity will appear as Ava searches, drafts, requests approval, and executes approved tools.</div>}
         </div>}
 
         {activeTab === "integrations" && <div className="assistant-scroll">
