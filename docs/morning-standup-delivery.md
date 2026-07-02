@@ -2,6 +2,18 @@
 
 This adds a delivery layer for the Codex-generated morning standup. Codex still reads Chick-fil-A Brenham Slack, excludes `#general`, and prepares the briefing. n8n receives the structured payload, creates or updates Todoist tasks, and sends the briefing as a DM in the second Slack workspace.
 
+The standup itself is now presentation-oriented as an executive briefing. The data collection and prioritization stay the same, but the user-facing `standup_summary` should be organized as:
+
+- `☀️ Morning Standup`
+- `🔥 Priority Items`
+- `📈 Operational Highlights`
+- `👤 Your Activity`
+- `⚠️ Watch Items`
+- `🎯 Today's Focus`
+- `✅ Wins`
+
+Do not include appendix/debug sections such as window details, sources checked, coverage notes, or scan strategy in the user-facing message.
+
 ## Files
 
 - `n8n/workflows/morning-standup-delivery.json` - importable n8n workflow.
@@ -30,9 +42,18 @@ The sender uses this URL by default. `MORNING_STANDUP_DELIVERY_WEBHOOK_URL` can 
 
 Codex should send JSON with:
 
-- `standup_summary`: Slack-ready summary text optimized for Slack `mrkdwn` readability.
+- `standup_summary`: Slack-ready executive briefing text optimized for Slack `mrkdwn` readability.
 - `todoist_tasks`: actionable Cody-owned tasks only; use `[]` when none exist.
 - `excluded_channels`: must include `general`.
+
+The `standup_summary` should:
+
+- include recipient name, current date, and `Overall Status: 🟢 Stable`, `🟡 Attention Needed`, or `🔴 Critical`
+- open with a 1-2 sentence executive summary
+- group findings by business area instead of Slack channel whenever possible
+- keep recipient-specific items under `👤 Your Activity`
+- use `None.` when `Awaiting Your Response` or `Mentions` has no meaningful content
+- end with concise `🎯 Today's Focus` recommendations and `✅ Wins`
 
 Each `todoist_tasks` item should include:
 
@@ -77,4 +98,4 @@ Expected behavior:
 - The webhook returns `accepted: true`.
 - One Todoist task is created on the first run.
 - The same Todoist task is updated on the second run.
-- The second Slack workspace receives a DM with the standup summary.
+- The second Slack workspace receives a DM with the executive-format standup summary.

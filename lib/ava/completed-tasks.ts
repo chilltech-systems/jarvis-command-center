@@ -131,6 +131,25 @@ function hasCompletionEvidence(task: TodoistCompletedTask) {
   );
 }
 
+function parseCompletedTime(value: string) {
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? Number.POSITIVE_INFINITY : parsed;
+}
+
+function compareCompletedTasksByDate(first: AvaCompletedTask, second: AvaCompletedTask) {
+  const timeDifference = parseCompletedTime(first.completedAt) - parseCompletedTime(second.completedAt);
+  if (timeDifference) return timeDifference;
+
+  const titleDifference = first.title.localeCompare(second.title);
+  if (titleDifference) return titleDifference;
+
+  return first.id.localeCompare(second.id);
+}
+
+function sortCompletedTasksByDate(tasks: AvaCompletedTask[]) {
+  return [...tasks].sort(compareCompletedTasksByDate);
+}
+
 function completedSummary(tasks: AvaCompletedTask[]) {
   if (!tasks.length) return "I have not seen completed Todoist tasks yet today.";
   const titles = tasks.slice(0, 3).map((task) => task.title).join(", ");
@@ -143,7 +162,7 @@ export async function getAvaCompletedTasks() {
   const { since, until } = getCentralDayWindow();
   const direct = await fetchTodoistCompletedActivity({ since, until });
   if (direct.completed) {
-    const completedToday = direct.completed.filter(hasCompletionEvidence).map(mapCompletedTask);
+    const completedToday = sortCompletedTasksByDate(direct.completed.filter(hasCompletionEvidence).map(mapCompletedTask));
 
     return {
       source: "live-todoist-api",
@@ -160,7 +179,7 @@ export async function getAvaCompletedTasks() {
     timeoutMs: 3000,
   });
   const completed = response.success ? extractCompletedTasks(response.data) : null;
-  const completedToday = completed ? completed.filter(hasCompletionEvidence).map(mapCompletedTask) : [];
+  const completedToday = completed ? sortCompletedTasksByDate(completed.filter(hasCompletionEvidence).map(mapCompletedTask)) : [];
 
   return {
     source: completed ? "live-todoist" : "unavailable",

@@ -35,6 +35,36 @@ function addDaysLocalDate(date: string, days: number) {
   }).format(nextDate);
 }
 
+function parseScheduledTime(value: string | null) {
+  if (!value) return Number.POSITIVE_INFINITY;
+
+  const normalized = value.trim().toLowerCase();
+  const today = todayLocalDate();
+  const relativeDate = normalized === "yesterday"
+    ? addDaysLocalDate(today, -1)
+    : normalized === "today"
+      ? today
+      : normalized === "tomorrow"
+        ? addDaysLocalDate(today, 1)
+        : null;
+
+  if (relativeDate) return Date.parse(`${relativeDate}T00:00:00-05:00`);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return Date.parse(`${value}T00:00:00-05:00`);
+
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? Number.POSITIVE_INFINITY : parsed;
+}
+
+function compareAvaTasksByDate(first: AvaTask, second: AvaTask) {
+  const timeDifference = parseScheduledTime(first.scheduledFor) - parseScheduledTime(second.scheduledFor);
+  if (timeDifference) return timeDifference;
+
+  const titleDifference = first.title.localeCompare(second.title);
+  if (titleDifference) return titleDifference;
+
+  return first.id.localeCompare(second.id);
+}
+
 function mapTodoistTask(task: TodoistTask): AvaTask {
   const scheduledFor = task.due?.datetime || task.due?.date || task.due?.string || null;
   const dueDate = scheduledFor || "No schedule";
@@ -104,6 +134,10 @@ function uniqueTasks(tasks: AvaTask[]) {
   return Array.from(new Map(tasks.map((task) => [task.id, task])).values());
 }
 
+function sortAvaTasksByDate(tasks: AvaTask[]) {
+  return [...tasks].sort(compareAvaTasksByDate);
+}
+
 export async function getAvaTasks(filter?: string) {
   const reads = filter
     ? [await readTodoistTasks(filter)]
@@ -113,7 +147,7 @@ export async function getAvaTasks(filter?: string) {
     ]);
   const todoistTasks = reads.flatMap((read) => read.todoistTasks || []);
   const failedRead = reads.find((read) => !read.todoistTasks);
-  const tasks = todoistTasks.length ? uniqueTasks(todoistTasks.map(mapTodoistTask)) : mockAsAvaTasks();
+  const tasks = sortAvaTasksByDate(todoistTasks.length ? uniqueTasks(todoistTasks.map(mapTodoistTask)) : mockAsAvaTasks());
   return {
     source: todoistTasks.length ? "live-todoist" : "mock",
     error: todoistTasks.length ? null : failedRead?.response.error || "Unexpected Todoist response format",

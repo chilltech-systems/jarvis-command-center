@@ -1,33 +1,27 @@
 import Link from "next/link";
 import { AvaPageShell, SectionHeader, StatusPill } from "@/app/components/ava-shell";
 import { AutomationsStatusCenter } from "@/app/components/automations-status-center";
-import { dailyBrief } from "@/lib/mock-data/ava";
-import { getAvaTasks } from "@/lib/ava/todoist";
-import { getAvaWeather } from "@/lib/ava/weather";
-import { getAvaProjects } from "@/lib/ava/projects";
-import { getAvaIntelligenceFeed } from "@/lib/ava/intelligence";
-import { getAvaCompletedTasks } from "@/lib/ava/completed-tasks";
-import { getCentralGreeting } from "@/lib/ava/time";
+import { getAvaExecutiveContext } from "@/lib/ava/core";
 
 export default async function Home() {
-  const [{ groups: groupedTasks, source: taskSource }, completedTasks, liveWeather, liveProjects, liveFeed] = await Promise.all([
-    getAvaTasks(),
-    getAvaCompletedTasks(),
-    getAvaWeather(),
-    Promise.resolve(getAvaProjects()),
-    getAvaIntelligenceFeed(),
-  ]);
+  const executiveContext = await getAvaExecutiveContext();
+  const tasks = executiveContext.raw.cognitiveState.awareness.tasks as Awaited<ReturnType<typeof import("@/lib/ava/todoist").getAvaTasks>>;
+  const completedTasks = executiveContext.raw.cognitiveState.awareness.completedTasks as Awaited<ReturnType<typeof import("@/lib/ava/completed-tasks").getAvaCompletedTasks>>;
+  const liveWeather = executiveContext.raw.cognitiveState.awareness.weather as Awaited<ReturnType<typeof import("@/lib/ava/weather").getAvaWeather>>;
+  const liveProjects = ((executiveContext.raw.cognitiveState.awareness.projects as { projects?: Awaited<ReturnType<typeof import("@/lib/ava/projects").getAvaProjects>> })?.projects || []);
+  const liveFeed = executiveContext.intelligenceFeed;
+  const dailyBrief = executiveContext.dailyBrief;
+  const groupedTasks = tasks.groups;
+  const taskSource = tasks.source;
   const schedule = {
     todayItems: groupedTasks.scheduled.filter((task) => task.status !== "upcoming"),
   };
-  const activeProjectCount = liveProjects.filter((project) => ["Active", "Ready", "Prototype"].includes(project.status)).length;
-  const snapshotSummary = `${getCentralGreeting()}, Cody. I found ${groupedTasks.scheduled.length} scheduled Todoist item${groupedTasks.scheduled.length === 1 ? "" : "s"}, ${groupedTasks.overdue.length} overdue, ${activeProjectCount} active local project${activeProjectCount === 1 ? "" : "s"}, and ${liveWeather.condition.toLowerCase()} around ${liveWeather.temperature}° in ${liveWeather.location}. I also saw ${completedTasks.completedCount} Todoist task${completedTasks.completedCount === 1 ? "" : "s"} already completed today.`;
   return (
     <AvaPageShell eyebrow="Ava Dashboard" title="Home" subtitle="I am watching the day quietly and surfacing what matters first.">
       <section className="grid home-grid">
         <div className="panel attention-panel">
           <SectionHeader title="Daily Snapshot" action={<StatusPill tone="warning">1 review</StatusPill>} />
-          <p className="snapshot-copy">{snapshotSummary || dailyBrief.summary}</p>
+          <p className="snapshot-copy">{dailyBrief.summary}</p>
         </div>
         <div className="panel">
           <SectionHeader title="Weather" action={<span className="badge">{liveWeather.location}</span>} />
