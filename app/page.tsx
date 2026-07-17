@@ -1,79 +1,11 @@
-import Link from "next/link";
-import { AvaPageShell, SectionHeader, StatusPill } from "@/app/components/ava-shell";
-import { AutomationsStatusCenter } from "@/app/components/automations-status-center";
-import { getAvaExecutiveContext } from "@/lib/ava/core";
+import type { Metadata } from "next";
+import { AvaMindCanvas } from "@/components/ava-mind/AvaMindCanvas";
 
-export default async function Home() {
-  const executiveContext = await getAvaExecutiveContext();
-  const tasks = executiveContext.raw.cognitiveState.awareness.tasks as Awaited<ReturnType<typeof import("@/lib/ava/todoist").getAvaTasks>>;
-  const completedTasks = executiveContext.raw.cognitiveState.awareness.completedTasks as Awaited<ReturnType<typeof import("@/lib/ava/completed-tasks").getAvaCompletedTasks>>;
-  const liveWeather = executiveContext.raw.cognitiveState.awareness.weather as Awaited<ReturnType<typeof import("@/lib/ava/weather").getAvaWeather>>;
-  const liveProjects = ((executiveContext.raw.cognitiveState.awareness.projects as { projects?: Awaited<ReturnType<typeof import("@/lib/ava/projects").getAvaProjects>> })?.projects || []);
-  const liveFeed = executiveContext.intelligenceFeed;
-  const dailyBrief = executiveContext.dailyBrief;
-  const groupedTasks = tasks.groups;
-  const taskSource = tasks.source;
-  const schedule = {
-    todayItems: groupedTasks.scheduled.filter((task) => task.status !== "upcoming"),
-  };
-  return (
-    <AvaPageShell eyebrow="Ava Dashboard" title="Home" subtitle="I am watching the day quietly and surfacing what matters first.">
-      <section className="grid home-grid">
-        <div className="panel attention-panel">
-          <SectionHeader title="Daily Snapshot" action={<StatusPill tone="warning">1 review</StatusPill>} />
-          <p className="snapshot-copy">{dailyBrief.summary}</p>
-        </div>
-        <div className="panel">
-          <SectionHeader title="Weather" action={<span className="badge">{liveWeather.location}</span>} />
-          <div className="weather-value">{liveWeather.temperature}°</div>
-          <div className="row-title">{liveWeather.condition}</div>
-          <div className="row-meta">High {liveWeather.high}° · Low {liveWeather.low}° · Rain {liveWeather.rainChance}%</div>
-          <p className="subtle">{liveWeather.recommendation}</p>
-        </div>
-        <div className="panel">
-          <SectionHeader title="Calendar Preview" />
-          <div className="list">
-            {schedule.todayItems.slice(0, 2).map((event) => <div className="row" key={event.id}><span className="dot" /><div><div className="row-title">{event.title}</div><div className="row-meta">{event.dueDate} · Priority {event.priority} · Todoist</div></div><span className="badge">{event.status.replace("_", " ")}</span></div>)}
-            {!schedule.todayItems.length ? <div className="row"><span className="dot normal" /><div><div className="row-title">I do not see scheduled Todoist items today</div><div className="row-meta">I am keeping unscheduled items on the Tasks tab.</div></div><span className="badge">clear</span></div> : null}
-            <div className="open-block">Open block: 12:15 PM - 1:45 PM</div>
-          </div>
-        </div>
-        <div className="panel">
-          <SectionHeader title="Tasks Preview" action={<StatusPill tone={taskSource === "live-todoist" ? "good" : "warning"}>{taskSource === "live-todoist" ? "Live" : "Mock"}</StatusPill>} />
-          <div className="mini-stats">
-            <span>Overdue<strong>{groupedTasks.overdue.length}</strong></span>
-            <span>Today<strong>{groupedTasks.today.length}</strong></span>
-            <span>Next 3 days<strong>{groupedTasks.nextThreeDays.length}</strong></span>
-            <span>Done<strong>{completedTasks.completedCount}</strong></span>
-          </div>
-        </div>
-      </section>
+export const metadata: Metadata = {
+  title: "AVA Cognitive Core",
+  description: "A real-time holographic visualization of AVA's active digital mind.",
+};
 
-      <section className="panel home-section">
-        <SectionHeader title="Automation Health Preview" action={<Link className="badge" href="/automations">Open Automations</Link>} />
-        <AutomationsStatusCenter compact />
-      </section>
-
-      <section className="grid columns home-section">
-        <div className="panel">
-          <SectionHeader title="Project Pulse" action={<Link className="badge" href="/projects">All Projects</Link>} />
-          <div className="project-strip">
-            {liveProjects.slice(0, 7).map((project) => (
-              <div className="project-mini" key={project.name}>
-                <div className="row-title">{project.name}</div>
-                <div className="row-meta">{project.status} · {project.phase}</div>
-                <p>{project.nextAction}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="panel">
-          <SectionHeader title="Intelligence Feed Preview" action={<Link className="badge" href="/intelligence-feed">Open Feed</Link>} />
-          <div className="list">
-            {liveFeed.slice(0, 5).map((item) => <div className="row" key={item.id}><span className={`dot ${item.severity}`} /><div><div className="row-title">{item.title}</div><div className="row-meta">{item.timestamp} · {item.category} · {item.summary}</div></div></div>)}
-          </div>
-        </div>
-      </section>
-    </AvaPageShell>
-  );
+export default function MindOfAvaPage() {
+  return <AvaMindCanvas />;
 }

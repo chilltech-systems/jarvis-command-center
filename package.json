@@ -7,17 +7,24 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "validate": "node scripts/validate-n8n-workflow-json.js && node scripts/validate-execution-collector.js && node scripts/validate-business-pulse-variants.js && node scripts/validate-hud-auth.js && node scripts/validate-hud-timezone.js && node scripts/validate-jarvis-assistant-foundation.js"
+    "validate": "node scripts/validate-n8n-workflow-json.js && node scripts/validate-execution-collector.js && node scripts/validate-business-pulse-variants.js && node scripts/validate-hud-auth.js && node scripts/validate-hud-timezone.js && node scripts/validate-jarvis-assistant-foundation.js && node scripts/validate-ava-runtime-foundation.js && node --no-warnings scripts/validate-ava-nebula-cinematic.js",
+    "validate:nebula": "node --no-warnings scripts/validate-ava-nebula-cinematic.js"
   },
   "dependencies": {
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.4.2",
+    "@react-three/postprocessing": "^3.0.4",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.87.1",
     "lucide-react": "^0.555.0",
     "next": "^16.0.7",
+    "postprocessing": "^6.38.0",
     "react": "^19.2.1",
-    "react-dom": "^19.2.1"
+    "react-dom": "^19.2.1",
+    "three": "^0.181.2"
   },
   "devDependencies": {
+    "@types/three": "^0.181.0",
     "@tailwindcss/postcss": "^4.1.17",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.7",

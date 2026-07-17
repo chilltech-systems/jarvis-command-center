@@ -3,13 +3,14 @@ import { CalendarDays, CheckSquare, Cpu, Home, Newspaper, Orbit, Settings, Spark
 import { AvaClock } from "@/app/components/ava-clock";
 
 export const avaTabs = [
-  { href: "/", label: "Home", icon: Home },
+  { href: "/dashboard", label: "Home", icon: Home },
   { href: "/daily-brief", label: "Daily Brief", icon: Sparkles },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/tasks", label: "Tasks", icon: CheckSquare },
   { href: "/projects", label: "Projects", icon: Orbit },
   { href: "/automations", label: "Automations", icon: Workflow },
   { href: "/intelligence-feed", label: "Intelligence Feed", icon: Newspaper },
+  { href: "/runtime", label: "Runtime", icon: Cpu },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

@@ -1,8 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { Activity, Sparkles } from "lucide-react";
-import { AccountControls } from "@/app/components/account-controls";
-import { AvaAssistant } from "@/app/components/ava-assistant";
+import { AppChrome } from "@/app/components/app-chrome";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -17,20 +14,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en">
       <body>
-        <div className="scanlines" />
-        <header className="topbar">
-          <Link href="/" className="brand">
-            <Sparkles size={20} />
-            <span>Ava</span>
-            <small>Dashboard</small>
-          </Link>
-          <div className="topbar-actions">
-            <div className="live-indicator"><Activity size={14} /> System Pulse</div>
-            <AccountControls compact />
-          </div>
-        </header>
-        {children}
-        <AvaAssistant />
+        <AppChrome>{children}</AppChrome>
       </body>
     </html>
   );

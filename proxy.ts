@@ -1,6 +1,14 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+function isPrivateDevHost(hostname: string) {
+  if (["localhost", "127.0.0.1", "::1"].includes(hostname)) return true;
+  if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(hostname)) return true;
+  if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)) return true;
+  const match = hostname.match(/^172\.(\d{1,2})\.\d{1,3}\.\d{1,3}$/);
+  return Boolean(match && Number(match[1]) >= 16 && Number(match[1]) <= 31);
+}
+
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
   const supabase = createServerClient(
@@ -21,12 +29,13 @@ export async function proxy(request: NextRequest) {
   );
 
   const { data: { user } } = await supabase.auth.getUser();
-  const isLocalDevPreview = process.env.NODE_ENV === "development"
-    && ["localhost", "127.0.0.1", "::1"].includes(request.nextUrl.hostname)
+  const isLocalDevPreview = process.env.VERCEL_ENV !== "production"
+    && isPrivateDevHost(request.nextUrl.hostname)
     && !request.nextUrl.pathname.startsWith("/api/jarvis");
   const publicPath = request.nextUrl.pathname.startsWith("/login")
     || request.nextUrl.pathname.startsWith("/auth")
     || request.nextUrl.pathname.startsWith("/unauthorized")
+    || request.nextUrl.pathname === "/api/ava/nebula-feed"
     || isLocalDevPreview;
 
   if (!user && !publicPath) {

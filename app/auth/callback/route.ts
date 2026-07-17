@@ -20,7 +20,7 @@ export async function GET(request: Request) {
       loginUrl.searchParams.set("error", error.message);
       return NextResponse.redirect(loginUrl);
     }
-    return NextResponse.redirect(new URL("/", request.url));
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   const loginUrl = new URL("/login", request.url);
