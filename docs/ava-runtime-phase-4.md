@@ -2,7 +2,10 @@
 
 ## Summary
 
-Phase 4 adds `lib/ava/runtime/` as Ava's explicit-start operating layer. Phase 5 connects that runtime to the Cognitive Core through a continuous cognition loop. It runs beside the request-driven dashboard and orchestrates the existing Cognitive Core without replacing or redesigning it.
+Phase 4 adds `lib/ava/runtime/` as Ava's operating layer. Phase 5 connects that runtime to the Cognitive Core. The runtime now has explicit `request` and `continuous` modes so Vercel requests do not pretend to own an always-on process.
+
+- `request` mode is the default. Each invocation performs one fresh cognition cycle and starts no scheduler, heartbeat, perception polling, or reconnect timers.
+- `continuous` mode is opt-in for local development or a future durable worker. It owns scheduler, heartbeat, perception, and cleanup lifecycles.
 
 The runtime is infrastructure only. It does not implement Home Assistant, voice, cameras, presence, notifications, Apple integrations, sensors, lighting, HVAC, security automation, WebSockets, or device discovery.
 
@@ -109,6 +112,8 @@ sequenceDiagram
 6. Runtime Store synchronizes the latest awareness, timeline, world model, reasoning, recommendations, focus, executive context, snapshot, changes, and runtime health.
 7. Runtime events announce scheduler ticks, cognition completion, snapshot updates, reasoning updates, executive context updates, detected changes, memory persistence, diagnostics, and health changes.
 8. Dashboard pages continue using existing request-built cognition until a future migration opts into runtime reads.
+
+Request cognition collects awareness once and derives Cognitive State, Executive Context, snapshots, changes, focus, and recommendations from that same state. Runtime failures report health and always leave the lifecycle in `idle` unless the runtime is shutting down. Scheduler jobs cannot overlap with another execution of the same job.
 
 ## Future Extension Points
 

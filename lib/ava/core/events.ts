@@ -188,14 +188,16 @@ export function normalizeAwarenessEvents(awareness: {
   gmail?: unknown;
   connections?: unknown;
   automation?: unknown;
+  sources?: Record<string, { status?: string }>;
 }) {
+  const usable = (source: string) => awareness.sources?.[source]?.status === "live";
   return [
-    ...normalizeTaskEvents(awareness.tasks),
-    ...normalizeCompletedTaskEvents(awareness.completedTasks),
-    ...normalizeGmailEvents(awareness.gmail),
-    ...normalizeWeatherEvent(awareness.weather),
-    ...normalizeProjectEvents(awareness.projects),
-    ...normalizeConnectionEvents(awareness.connections),
-    ...normalizeAutomationEvents(awareness.automation),
+    ...(usable("tasks") ? normalizeTaskEvents(awareness.tasks) : []),
+    ...(usable("completedTasks") ? normalizeCompletedTaskEvents(awareness.completedTasks) : []),
+    ...(usable("gmail") ? normalizeGmailEvents(awareness.gmail) : []),
+    ...(usable("weather") ? normalizeWeatherEvent(awareness.weather) : []),
+    ...(usable("projects") ? normalizeProjectEvents(awareness.projects) : []),
+    ...(usable("connections") ? normalizeConnectionEvents(awareness.connections) : []),
+    ...(usable("automation") ? normalizeAutomationEvents(awareness.automation) : []),
   ];
 }

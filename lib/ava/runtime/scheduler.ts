@@ -16,6 +16,7 @@ function normalizeJob(input: AvaRuntimeJobInput): AvaRuntimeJob {
     nextRunAt: input.enabled ? nextRunAt(input.intervalMs) : null,
     lastDurationMs: null,
     lastError: null,
+    running: false,
   };
 }
 
@@ -26,7 +27,8 @@ export function createAvaRuntimeScheduler(context: AvaRuntimeJobContext) {
 
   async function runJob(jobId: string) {
     const job = jobs.get(jobId);
-    if (!job || !job.enabled) return;
+    if (!job || !job.enabled || job.running) return;
+    jobs.set(job.id, { ...job, running: true });
 
     const startedAt = Date.now();
     const scheduledAt = job.nextRunAt ? new Date(job.nextRunAt).getTime() : startedAt;
@@ -40,6 +42,7 @@ export function createAvaRuntimeScheduler(context: AvaRuntimeJobContext) {
         nextRunAt: nextRunAt(job.intervalMs),
         lastDurationMs: Date.now() - startedAt,
         lastError: null,
+        running: false,
       });
       context.health.reportModuleHealth(`scheduler:${job.id}`, {
         status: "healthy",
@@ -53,6 +56,7 @@ export function createAvaRuntimeScheduler(context: AvaRuntimeJobContext) {
         nextRunAt: nextRunAt(job.intervalMs),
         lastDurationMs: Date.now() - startedAt,
         lastError: message,
+        running: false,
       });
       context.health.reportError(`scheduler:${job.id}`, error);
     }

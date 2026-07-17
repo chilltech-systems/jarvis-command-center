@@ -1,5 +1,6 @@
 import type { AvaEvent, AvaWorldEntity, AvaWorldModel, AvaEntityHealth } from "@/lib/ava/core/types";
 import { severityWeight } from "@/lib/ava/core/timeline";
+import { canonicalEntityId } from "@/lib/ava/core/entities";
 
 function healthFromEvents(events: AvaEvent[]): AvaEntityHealth {
   const highest = events.reduce((score, event) => Math.max(score, severityWeight(event.severity)), 0);
@@ -25,6 +26,7 @@ export function buildWorldModel(events: AvaEvent[], generatedAt = new Date().toI
 
     return {
       id,
+      canonicalId: canonicalEntityId(latest.entityType, latest.source, latest.entityId),
       type: latest.entityType,
       name: latest.entityId,
       currentState: latest.summary,

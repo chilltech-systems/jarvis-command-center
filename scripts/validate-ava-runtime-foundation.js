@@ -222,14 +222,13 @@ async function main() {
 
   const runtime = createAvaRuntime({
     config: {
+      mode: "continuous",
       heartbeatIntervalMs: 100,
       awarenessRefreshIntervalMs: 1000,
       schedulerIntervalMs: 1000,
       featureFlags: {
         scheduler: true,
         memoryPersistence: false,
-        runtimeStateReads: false,
-        futureIntegrations: false,
       },
     },
     dependencies: {

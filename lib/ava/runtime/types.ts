@@ -27,6 +27,8 @@ export type AvaRuntimeLifecycleStage =
   | "recovering"
   | "shutdown";
 
+export type AvaRuntimeMode = "request" | "continuous";
+
 export type AvaRuntimeEventPriority = "critical" | "high" | "normal" | "low";
 
 export type AvaRuntimeEvent<TPayload extends AvaCoreJson = AvaCoreJson> = {
@@ -124,9 +126,10 @@ export type AvaRuntimeJob = {
   nextRunAt: string | null;
   lastDurationMs: number | null;
   lastError: string | null;
+  running: boolean;
 };
 
-export type AvaRuntimeJobInput = Omit<AvaRuntimeJob, "lastRunAt" | "nextRunAt" | "lastDurationMs" | "lastError">;
+export type AvaRuntimeJobInput = Omit<AvaRuntimeJob, "lastRunAt" | "nextRunAt" | "lastDurationMs" | "lastError" | "running">;
 
 export type AvaRuntimeSchedulerSnapshot = {
   status: AvaRuntimeSchedulerStatus;
@@ -209,11 +212,10 @@ export type AvaRuntimeHealth = {
 };
 
 export type AvaRuntimeConfig = {
+  mode: AvaRuntimeMode;
   heartbeatIntervalMs: number;
   schedulerIntervalMs: number;
   awarenessRefreshIntervalMs: number;
-  executiveContextRefreshIntervalMs: number;
-  snapshotIntervalMs: number;
   memoryPersistenceIntervalMs: number;
   cleanupIntervalMs: number;
   healthIntervalMs: number;
@@ -224,8 +226,6 @@ export type AvaRuntimeConfig = {
   featureFlags: {
     scheduler: boolean;
     memoryPersistence: boolean;
-    runtimeStateReads: boolean;
-    futureIntegrations: boolean;
     perception: boolean;
   };
 };
@@ -238,11 +238,18 @@ export type AvaRuntimeDependencies = {
 };
 
 export type AvaRuntimeStatus = {
+  mode: AvaRuntimeMode;
   lifecycleStage: AvaRuntimeLifecycleStage;
   startedAt: string | null;
   stoppedAt: string | null;
   lastHeartbeatAt: string | null;
   heartbeatCount: number;
+  lastSuccessfulCognitionAt: string | null;
+  lastFailedCognitionAt: string | null;
+  persistence: {
+    enabled: boolean;
+    configured: boolean;
+  };
   scheduler: AvaRuntimeSchedulerSnapshot;
   health: AvaRuntimeHealth;
   config: AvaRuntimeConfig;
@@ -254,6 +261,7 @@ export type AvaRuntimeMemoryFlushResult = {
   persistedSnapshot: boolean;
   persistedChanges: number;
   persistedEvents: number;
+  persistedMemories: number;
   reason: string | null;
 };
 

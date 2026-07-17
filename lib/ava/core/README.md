@@ -27,6 +27,8 @@ Future code should follow this direction. New features should not pull directly 
 - `events.ts` normalizes awareness outputs into typed `AvaEvent` records.
 - `timeline.ts` merges, sorts, filters, groups, summarizes, and prioritizes events with pure functions.
 - `memory.ts` provides optional Supabase-backed storage using the existing `jarvis_memory` table.
+- `second-brain-memory.ts` adds typed working, episodic, factual, procedural, commitment, preference, feedback, entity, relationship, and identity-candidate memory without a schema migration.
+- `entities.ts` resolves exact source identities and explicit aliases into canonical entities while leaving ambiguous matches for review.
 - `world.ts` converts timeline events into durable real-world entities.
 - `reasoning.ts` produces deterministic priorities, risks, changes, approvals, and focus suggestions without OpenAI.
 - `attention.ts` scores events into `Critical`, `High`, `Medium`, `Background`, or `Ignore`.
@@ -230,6 +232,18 @@ The core uses the existing `jarvis_memory` table through these scopes:
 - `ava_core_change`
 - `ava_core_notable_change`
 - `dashboard_daily_snapshot`
+- `ava_working_memory`
+- `ava_episode`
+- `ava_fact`
+- `ava_procedure`
+- `ava_commitment`
+- `ava_preference`
+- `ava_feedback`
+- `ava_entity`
+- `ava_entity_relationship`
+- `ava_identity_candidate`
+
+Second-brain memories retain provenance, confidence, validity, entity relationships, sensitivity, conflicts, evidence counts, and supersession history. Adaptive promotion requires confidence of at least `0.90` and two independent signals. Sensitive or conflicting memories remain reviewable.
 
 Memory writes are optional. Pure cognitive state can be built without a Supabase client, which keeps local development and future agents simple.
 

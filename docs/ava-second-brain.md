@@ -270,6 +270,10 @@ The existing architecture already provides the foundation for this direction:
 - **The dashboard, assistant, voice, and future interfaces** expose the same underlying intelligence.
 - **Approval-gated tools and automations** allow the system to act without bypassing Cody's control.
 
+The current core also provides structured second-brain memory for working context, episodes, facts, procedures, commitments, preferences, feedback, canonical entities, relationships, and unresolved identity candidates. These records reuse `jarvis_memory` and remain owner-scoped through its existing RLS policies.
+
+Adaptive memory promotion is deliberately strict: a non-sensitive, non-conflicting inference requires at least `0.90` confidence and two independent supporting signals. Canonical identity resolution uses stable source identifiers and explicit aliases only; ambiguous matches remain review candidates.
+
 New features should extend these shared layers. They should not place isolated intelligence inside a page, route, integration, or one-off agent when the capability belongs in the second brain.
 
 ## Build Principles for Future Ava Work

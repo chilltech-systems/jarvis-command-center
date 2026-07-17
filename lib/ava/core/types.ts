@@ -134,6 +134,7 @@ export type AvaChange<TPrevious extends AvaCoreJson = AvaCoreJson, TCurrent exte
 export type AvaSourceState = {
   source: string;
   status: "live" | "fallback" | "unavailable" | "unknown";
+  freshness: "fresh" | "stale" | "unknown";
   error?: string | null;
   updatedAt: string;
 };
@@ -198,6 +199,7 @@ export type AvaEntityHealth = "healthy" | "watch" | "at_risk" | "critical" | "un
 
 export type AvaWorldEntity = {
   id: string;
+  canonicalId?: string;
   type: AvaEntityType;
   name: string;
   currentState: string;
@@ -269,12 +271,103 @@ export type AvaMemoryRecord<TContent extends AvaCoreJson = AvaCoreJson> = {
     | "ava_core_daily_snapshot"
     | "ava_core_change"
     | "ava_core_notable_change"
-    | "dashboard_daily_snapshot";
+    | "dashboard_daily_snapshot"
+    | AvaSecondBrainMemoryScope;
   memoryKey: string;
-  source: "ava-cognitive-core";
+  source: string;
   confidence: number;
   active: boolean;
   content: TContent;
+};
+
+export type AvaSecondBrainMemoryScope =
+  | "ava_working_memory"
+  | "ava_episode"
+  | "ava_fact"
+  | "ava_procedure"
+  | "ava_commitment"
+  | "ava_preference"
+  | "ava_feedback"
+  | "ava_entity"
+  | "ava_entity_relationship"
+  | "ava_identity_candidate";
+
+export type AvaSecondBrainMemoryKind =
+  | "working"
+  | "episode"
+  | "fact"
+  | "procedure"
+  | "commitment"
+  | "preference"
+  | "feedback"
+  | "entity"
+  | "relationship"
+  | "identity_candidate";
+
+export type AvaMemoryStatus = "active" | "review" | "superseded" | "resolved";
+
+export type AvaMemorySourceReference = {
+  source: string;
+  referenceId?: string | null;
+  observedAt?: string | null;
+};
+
+export type AvaSecondBrainMemory<TContent extends AvaCoreJson = AvaCoreJson> = {
+  id: string;
+  kind: AvaSecondBrainMemoryKind;
+  summary: string;
+  sourceReferences: AvaMemorySourceReference[];
+  observedAt: string;
+  validFrom: string | null;
+  validUntil: string | null;
+  confidence: number;
+  status: AvaMemoryStatus;
+  relatedEntities: AvaRelatedEntity[];
+  supersedes: string | null;
+  sensitive: boolean;
+  conflicting: boolean;
+  evidenceCount: number;
+  content: TContent;
+};
+
+export type AvaCanonicalEntitySource = {
+  source: string;
+  sourceId: string;
+};
+
+export type AvaCanonicalEntity = {
+  id: string;
+  type: AvaEntityType;
+  name: string;
+  aliases: string[];
+  sourceReferences: AvaCanonicalEntitySource[];
+  relationships: AvaRelatedEntity[];
+  confidence: number;
+  status: "active" | "review" | "superseded";
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AvaIdentityCandidate = {
+  candidateId: string;
+  proposedEntityId: string | null;
+  type: AvaEntityType;
+  name: string;
+  sourceReference: AvaCanonicalEntitySource;
+  reason: string;
+  confidence: number;
+  status: "review" | "resolved" | "rejected";
+};
+
+export type AvaCanonicalRelationship = {
+  id: string;
+  fromEntityId: string;
+  toEntityId: string;
+  relationship: string;
+  sourceReferences: AvaMemorySourceReference[];
+  confidence: number;
+  status: "active" | "review" | "superseded";
+  observedAt: string;
 };
 
 export type AvaSupabaseLike = {

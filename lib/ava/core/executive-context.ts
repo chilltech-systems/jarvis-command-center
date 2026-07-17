@@ -7,7 +7,8 @@ import { buildAvaCognitiveState } from "@/lib/ava/core/state";
 import { diffAvaSnapshots } from "@/lib/ava/core/diff";
 import { changeToEvent, summarizeChanges } from "@/lib/ava/core/changes";
 import { mergeObservationAndChangeEvents } from "@/lib/ava/core/timeline";
-import type { AvaChange, AvaExecutiveContext, AvaPriority } from "@/lib/ava/core/types";
+import type { AvaChange, AvaCognitiveState, AvaExecutiveContext, AvaPriority } from "@/lib/ava/core/types";
+import type { AvaAwarenessDependencies } from "@/lib/ava/core/awareness";
 
 function asRecord(value: unknown) {
   return value && typeof value === "object" ? value as Record<string, any> : {};
@@ -106,8 +107,13 @@ function buildExecutiveFeed(context: {
   ].slice(0, 12);
 }
 
-export async function getAvaExecutiveContext({ previousSnapshot }: { previousSnapshot?: unknown } = {}): Promise<AvaExecutiveContext> {
-  const cognitiveState = await buildAvaCognitiveState();
+export function buildAvaExecutiveContextFromState({
+  cognitiveState,
+  previousSnapshot,
+}: {
+  cognitiveState: AvaCognitiveState;
+  previousSnapshot?: unknown;
+}): AvaExecutiveContext {
   const currentSnapshot = buildAvaSnapshot(cognitiveState);
   const parsedPreviousSnapshot = parseAvaSnapshot(previousSnapshot);
   const recentChanges = diffAvaSnapshots(parsedPreviousSnapshot, currentSnapshot);
@@ -166,4 +172,15 @@ export async function getAvaExecutiveContext({ previousSnapshot }: { previousSna
     },
     intelligenceFeed,
   };
+}
+
+export async function getAvaExecutiveContext({
+  previousSnapshot,
+  awarenessDependencies,
+}: {
+  previousSnapshot?: unknown;
+  awarenessDependencies?: Partial<AvaAwarenessDependencies>;
+} = {}): Promise<AvaExecutiveContext> {
+  const cognitiveState = await buildAvaCognitiveState([], { awarenessDependencies });
+  return buildAvaExecutiveContextFromState({ cognitiveState, previousSnapshot });
 }

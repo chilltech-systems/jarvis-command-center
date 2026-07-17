@@ -16,3 +16,5 @@ export * from "@/lib/ava/core/briefing";
 export * from "@/lib/ava/core/focus";
 export * from "@/lib/ava/core/status";
 export * from "@/lib/ava/core/recommendations";
+export * from "@/lib/ava/core/second-brain-memory";
+export * from "@/lib/ava/core/entities";

@@ -70,8 +70,9 @@ export function createAvaRuntimeHealthManager({
   }
 
   function getHealth(runtimeStatus: AvaRuntimeLifecycleStage): AvaRuntimeHealth {
-    const hasErrors = errors.length > 0 || Object.values(modules).some((moduleHealth) => moduleHealth.status === "error");
-    const hasWarnings = warnings.length > 0 || Object.values(modules).some((moduleHealth) => moduleHealth.status === "warning");
+    const moduleStates = [...Object.values(modules), ...Object.values(integrations)];
+    const hasErrors = moduleStates.some((moduleHealth) => moduleHealth.status === "error");
+    const hasWarnings = moduleStates.some((moduleHealth) => moduleHealth.status === "warning");
     const uptimeMs = startedAt ? Date.now() - new Date(startedAt).getTime() : 0;
 
     return {

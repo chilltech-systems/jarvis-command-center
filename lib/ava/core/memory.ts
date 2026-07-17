@@ -55,7 +55,7 @@ export async function storeAvaMemoryRecord({
 }) {
   if (!supabase || !ownerId) return { stored: false, reason: "Supabase client or owner id was not provided." };
 
-  await supabase.from("jarvis_memory").upsert({
+  const { error } = await supabase.from("jarvis_memory").upsert({
     owner_id: ownerId,
     scope: record.scope,
     memory_key: record.memoryKey,
@@ -64,6 +64,10 @@ export async function storeAvaMemoryRecord({
     active: record.active,
     content: record.content,
   }, { onConflict: "owner_id,scope,memory_key" });
+
+  if (error) {
+    return { stored: false, reason: typeof error.message === "string" ? error.message : "Memory write failed." };
+  }
 
   return { stored: true, reason: null };
 }
@@ -148,9 +152,9 @@ export async function readRecentAvaMemory({
     .eq("scope", scope)
     .order("updated_at", { ascending: false })
     .limit(limit);
-  const { data } = await query;
+  const { data, error } = await query;
 
-  return data || [];
+  return error ? [] : data || [];
 }
 
 export async function readLatestAvaSnapshot({

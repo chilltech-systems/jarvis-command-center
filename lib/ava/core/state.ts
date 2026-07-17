@@ -5,10 +5,14 @@ import { mergeTimelineEvents, summarizeTimeline } from "@/lib/ava/core/timeline"
 import { buildWorldModel } from "@/lib/ava/core/world";
 import { reasonAboutAvaState } from "@/lib/ava/core/reasoning";
 import type { AvaCognitiveState, AvaEvent } from "@/lib/ava/core/types";
+import type { AvaAwarenessDependencies } from "@/lib/ava/core/awareness";
 
-export async function buildAvaCognitiveState(previousEvents: AvaEvent[] = []): Promise<AvaCognitiveState> {
+export async function buildAvaCognitiveState(
+  previousEvents: AvaEvent[] = [],
+  options: { awarenessDependencies?: Partial<AvaAwarenessDependencies> } = {},
+): Promise<AvaCognitiveState> {
   const generatedAt = new Date().toISOString();
-  const awareness = await buildAvaAwareness();
+  const awareness = await buildAvaAwareness(options.awarenessDependencies);
   const events = normalizeAwarenessEvents(awareness);
   const timeline = mergeTimelineEvents(events);
   const timelineSummary = summarizeTimeline(timeline);

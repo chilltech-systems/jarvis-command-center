@@ -50,6 +50,8 @@ export function createAvaRuntime({
   let heartbeatCount = 0;
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   let latestCognitionResult: AvaRuntimeCognitionResult | null = null;
+  let lastSuccessfulCognitionAt: string | null = null;
+  let lastFailedCognitionAt: string | null = null;
 
   const schedulerContext: AvaRuntimeJobContext = {
     eventBus,
@@ -69,6 +71,7 @@ export function createAvaRuntime({
 
   async function runCognitionCycle(origin = "scheduler") {
     await lifecycle.transition("busy");
+    try {
     await eventBus.publish({
       type: "runtime.scheduler.tick",
       source: "ava-runtime",
@@ -161,9 +164,19 @@ export function createAvaRuntime({
         visibleCount: result.visibleChanges.length,
       },
     });
-    await lifecycle.transition("idle");
-
+    lastSuccessfulCognitionAt = new Date().toISOString();
+    health.reportModuleHealth("runtime:cognition", {
+      status: "healthy",
+      message: `Cognition completed at ${lastSuccessfulCognitionAt}.`,
+    });
     return result;
+    } catch (error) {
+      lastFailedCognitionAt = new Date().toISOString();
+      health.reportError("runtime:cognition", error);
+      throw error;
+    } finally {
+      if (lifecycle.getStage() !== "shutdown") await lifecycle.transition("idle");
+    }
   }
 
   async function runPerceptionCycle(origin = "scheduler", triggerCognition = true) {
@@ -230,6 +243,7 @@ export function createAvaRuntime({
           persistedSnapshot: memoryResult.persistedSnapshot,
           persistedChanges: memoryResult.persistedChanges,
           persistedEvents: memoryResult.persistedEvents,
+          persistedMemories: memoryResult.persistedMemories,
         },
       });
     },
@@ -334,6 +348,19 @@ export function createAvaRuntime({
   }
 
   async function start() {
+    if (config.mode === "request") {
+      if (lifecycle.getStage() === "shutdown") {
+        startedAt = new Date().toISOString();
+        stoppedAt = null;
+        health.start();
+        await lifecycle.transition("startup");
+        await lifecycle.transition("initializing");
+        await lifecycle.transition("ready");
+      }
+      await runCognitionCycle("request");
+      return getStatus();
+    }
+
     if (lifecycle.getStage() !== "shutdown") return getStatus();
 
     startedAt = new Date().toISOString();
@@ -412,11 +439,18 @@ export function createAvaRuntime({
     const lifecycleStage = lifecycle.getStage();
 
     return {
+      mode: config.mode,
       lifecycleStage,
       startedAt,
       stoppedAt,
       lastHeartbeatAt,
       heartbeatCount,
+      lastSuccessfulCognitionAt,
+      lastFailedCognitionAt,
+      persistence: {
+        enabled: config.memoryPersistenceEnabled && config.featureFlags.memoryPersistence,
+        configured: Boolean(dependencies.supabase && dependencies.ownerId),
+      },
       scheduler: scheduler.getSnapshot(),
       health: health.getHealth(lifecycleStage),
       config,
