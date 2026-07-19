@@ -1,6 +1,5 @@
-import { getAvaCompletedTasks } from "@/lib/ava/completed-tasks";
 import { getAvaConnections } from "@/lib/ava/connections";
-import { getAvaTasks } from "@/lib/ava/todoist";
+import { getAvaDailyContext } from "@/lib/ava/daily-context";
 import { getProjectSummary } from "@/lib/ava/projects";
 import { JARVIS_TOOLS } from "@/lib/jarvis/tool-registry";
 
@@ -54,15 +53,16 @@ export async function buildDashboardContext({
   path: string;
 }) {
   const safePath = path.startsWith("/") ? path : "/";
-  const [tasks, completedTasks, projects, connections, overviewResult, activityResult, issuesResult] = await Promise.all([
-    getAvaTasks(),
-    getAvaCompletedTasks(),
+  const [dailyContext, projects, connections, overviewResult, activityResult, issuesResult] = await Promise.all([
+    getAvaDailyContext({ supabase, ownerId }),
     Promise.resolve(getProjectSummary()),
     Promise.resolve(getAvaConnections()),
     supabase.from("jarvis_hud_overview").select("*").limit(1).maybeSingle() as QueryResult<Record<string, unknown>>,
     supabase.from("jarvis_recent_activity").select("source_name,summary,status,severity,occurred_at").order("occurred_at", { ascending: false }).limit(5) as QueryResult<Array<Record<string, unknown>>>,
     supabase.from("jarvis_open_issues").select("source_workflow,summary,severity,urgency,occurred_at").order("occurred_at", { ascending: false }).limit(5) as QueryResult<Array<Record<string, unknown>>>,
   ]);
+  const tasks = dailyContext.context.raw.cognitiveState.awareness.tasks as Awaited<ReturnType<typeof import("@/lib/ava/todoist").getAvaTasks>>;
+  const completedTasks = dailyContext.context.raw.cognitiveState.awareness.completedTasks as Awaited<ReturnType<typeof import("@/lib/ava/completed-tasks").getAvaCompletedTasks>>;
 
   const connectedConnections = connections.filter((connection) => connection.status === "Connected").length;
   const context = {

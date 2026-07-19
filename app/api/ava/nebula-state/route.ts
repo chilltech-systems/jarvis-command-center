@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getAvaNebulaSnapshotV2 } from "@/lib/ava/nebula-feed";
 import type { AvaSupabaseLike } from "@/lib/ava/core/types";
 import { requireJarvisAdmin } from "@/lib/jarvis/auth";
+import { getAvaDailyContext, getAvaFallbackDailyContext } from "@/lib/ava/daily-context";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -20,7 +21,10 @@ export async function GET(request: NextRequest) {
   if ((!authorized || !user) && !localPreview) return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: responseHeaders });
 
   try {
-    const snapshot = await getAvaNebulaSnapshotV2({ supabase: authorized ? supabase as unknown as AvaSupabaseLike : null, ownerId: authorized ? user?.id : null });
+    const dailyContext = authorized && user
+      ? await getAvaDailyContext({ supabase, ownerId: user.id })
+      : await getAvaFallbackDailyContext();
+    const snapshot = await getAvaNebulaSnapshotV2({ context: dailyContext.context, supabase: authorized ? supabase as unknown as AvaSupabaseLike : null, ownerId: authorized ? user?.id : null });
     return NextResponse.json(snapshot, { headers: responseHeaders });
   } catch {
     return NextResponse.json({ error: "Nebula state is temporarily unavailable." }, { status: 503, headers: responseHeaders });

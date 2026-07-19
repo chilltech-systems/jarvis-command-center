@@ -49,6 +49,27 @@ function centralOffset(date: Date) {
   return `${sign}${hour}:${match[2] || "00"}`;
 }
 
+function centralMidnightInstant(dateKey: string) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const utcMidnight = Date.UTC(year, month - 1, day);
+  let candidate = new Date(utcMidnight);
+
+  // Resolve the offset at the target local midnight. Iterating avoids the
+  // common DST bug where using the noon offset makes spring-forward days 24h.
+  for (let iteration = 0; iteration < 3; iteration += 1) {
+    const offset = centralOffset(candidate);
+    const match = offset.match(/^([+-])(\d{2}):(\d{2})$/);
+    const minutes = match
+      ? (match[1] === "-" ? -1 : 1) * (Number(match[2]) * 60 + Number(match[3]))
+      : -360;
+    const next = new Date(utcMidnight - minutes * 60_000);
+    if (next.getTime() === candidate.getTime()) break;
+    candidate = next;
+  }
+
+  return candidate;
+}
+
 export function addCentralDays(dateKey: string, days: number) {
   const date = new Date(`${dateKey}T12:00:00${centralOffset(new Date())}`);
   date.setDate(date.getDate() + days);
@@ -59,11 +80,10 @@ export function addCentralDays(dateKey: string, days: number) {
 export function getCentralDayWindow(date = new Date()) {
   const sinceDate = formatCentralDateKey(date);
   const untilDate = addCentralDays(sinceDate, 1);
-  const offset = centralOffset(date);
 
   return {
-    since: `${sinceDate}T00:00:00${offset}`,
-    until: `${untilDate}T00:00:00${offset}`,
+    since: centralMidnightInstant(sinceDate).toISOString(),
+    until: centralMidnightInstant(untilDate).toISOString(),
   };
 }
 

@@ -1,6 +1,8 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { getAvaNebulaSnapshot } from "@/lib/ava/nebula-feed";
+import { getAvaDailyContext } from "@/lib/ava/daily-context";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -28,7 +30,10 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    return NextResponse.json(await getAvaNebulaSnapshot(), { headers: responseHeaders });
+    const ownerId = process.env.AVA_CONTEXT_OWNER_ID;
+    if (!ownerId) return NextResponse.json({ error: "Ava context owner is not configured." }, { status: 503, headers: responseHeaders });
+    const dailyContext = await getAvaDailyContext({ supabase: createAdminClient(), ownerId });
+    return NextResponse.json(getAvaNebulaSnapshot(dailyContext.context), { headers: responseHeaders });
   } catch {
     return NextResponse.json({ error: "Nebula feed is temporarily unavailable." }, { status: 503, headers: responseHeaders });
   }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { getAvaIntelligenceFeed } from "@/lib/ava/intelligence";
+import { getAvaDailyContextForCurrentUser } from "@/lib/ava/daily-context-server";
 
 export async function GET() {
-  return NextResponse.json({ items: await getAvaIntelligenceFeed() });
+  const { intelligenceFeed } = (await getAvaDailyContextForCurrentUser()).context;
+  return NextResponse.json({ items: intelligenceFeed });
 }

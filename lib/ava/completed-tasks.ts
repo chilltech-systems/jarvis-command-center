@@ -9,7 +9,7 @@ export type AvaCompletedTask = {
   source: "Todoist";
 };
 
-type TodoistCompletedTask = {
+export type TodoistCompletedTask = {
   id?: string;
   object_id?: string;
   task_id?: string;
@@ -39,7 +39,7 @@ type TodoistCompletedTask = {
   object_type?: string;
 };
 
-type TodoistCompletedResponse = {
+export type TodoistCompletedResponse = {
   items?: TodoistCompletedTask[];
   tasks?: TodoistCompletedTask[];
   results?: TodoistCompletedTask[];
@@ -158,6 +158,19 @@ function completedSummary(tasks: AvaCompletedTask[]) {
   return `I saw ${tasks.length} Todoist task${tasks.length === 1 ? "" : "s"} completed today, including ${titles}${suffix}.`;
 }
 
+export function buildAvaCompletedTasks(data: unknown, error: string | null = null) {
+  const completed = extractCompletedTasks(data);
+  const completedToday = completed ? sortCompletedTasksByDate(completed.filter(hasCompletionEvidence).map(mapCompletedTask)) : [];
+
+  return {
+    source: completed ? "live-todoist" : "unavailable",
+    completedCount: completedToday.length,
+    completedToday,
+    completedSummary: completedSummary(completedToday),
+    error: completed ? null : error || "Unexpected Todoist completed-task response format",
+  };
+}
+
 export async function getAvaCompletedTasks() {
   const { since, until } = getCentralDayWindow();
   const direct = await fetchTodoistCompletedActivity({ since, until });
@@ -178,14 +191,5 @@ export async function getAvaCompletedTasks() {
     user: "cody",
     timeoutMs: 3000,
   });
-  const completed = response.success ? extractCompletedTasks(response.data) : null;
-  const completedToday = completed ? sortCompletedTasksByDate(completed.filter(hasCompletionEvidence).map(mapCompletedTask)) : [];
-
-  return {
-    source: completed ? "live-todoist" : "unavailable",
-    completedCount: completedToday.length,
-    completedToday,
-    completedSummary: completedSummary(completedToday),
-    error: completed ? null : direct.error || response.error || "Unexpected Todoist completed-task response format",
-  };
+  return buildAvaCompletedTasks(response.success ? response.data : null, direct.error || response.error || null);
 }

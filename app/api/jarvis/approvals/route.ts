@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { requireJarvisAdmin } from "@/lib/jarvis/auth";
+import { refreshAvaDailyContext } from "@/lib/ava/daily-context";
 import type { CodexPromptPackage } from "@/lib/jarvis/codex";
 import { callToolHub, formatTodoistCreateResult, type TodoistCreateParameters } from "@/lib/jarvis/tool-hub";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 type ToolHubApprovalInput = {
   parameters?: Record<string, unknown>;
@@ -38,7 +40,27 @@ export async function PATCH(request: Request) {
       .eq("owner_id", user.id)
       .single();
 
-    if (toolCall?.tool_name === "create_codex_task") {
+    if (toolCall?.tool_name === "ava.context.refresh_override") {
+      const result = await refreshAvaDailyContext({
+        supabase: createAdminClient(),
+        ownerId: user.id,
+        kind: "manual",
+      });
+      const completed = result.status === "success" || result.status === "partial";
+      executionStatus = completed ? "executed" : "failed";
+      message = completed
+        ? `Ava daily context refresh ${result.status}. ${result.context.usage.remainingExecutions} context executions remain today.`
+        : `Ava daily context refresh ${result.status}: ${result.reason || "The refresh did not complete."}`;
+      await supabase.from("jarvis_tool_calls").update({
+        status: completed ? "complete" : "failed",
+        output_summary: { response: message, refreshStatus: result.status, usage: result.context.usage },
+        error_message: completed ? null : result.reason,
+        completed_at: new Date().toISOString(),
+      }).eq("tool_call_id", data.tool_call_id).eq("owner_id", user.id);
+      await supabase.from("jarvis_approvals").update({
+        status: completed ? "executed" : "failed",
+      }).eq("approval_id", approvalId).eq("owner_id", user.id);
+    } else if (toolCall?.tool_name === "create_codex_task") {
       const codexPackage = (toolCall.input_summary as { codexPackage?: CodexPromptPackage } | null)?.codexPackage;
       if (!codexPackage?.prompt) {
         executionStatus = "failed";

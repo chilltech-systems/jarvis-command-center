@@ -1,4 +1,3 @@
-import { getAvaExecutiveContext } from "@/lib/ava/core/executive-context";
 import { readRecentAvaMemory } from "@/lib/ava/core/memory";
 import type { AvaEvent, AvaExecutiveContext, AvaSeverity, AvaSupabaseLike } from "@/lib/ava/core/types";
 
@@ -92,9 +91,6 @@ export type AvaNebulaSnapshotV2 = {
   notableMemories: AvaNebulaMemory[];
 };
 
-const CACHE_MS = 5_000;
-let cachedSnapshot: { expiresAt: number; value: AvaNebulaSnapshot } | null = null;
-let inFlightSnapshot: Promise<AvaNebulaSnapshot> | null = null;
 let cachedMissionStatus: AvaExecutiveContext["missionStatus"] = "Calm";
 
 const NEBULA_REGION_DEFS: Array<{
@@ -281,33 +277,21 @@ function normalizeMemory(record: unknown, index: number): AvaNebulaMemory {
   };
 }
 
-export async function getAvaNebulaSnapshot() {
-  const now = Date.now();
-  if (cachedSnapshot && cachedSnapshot.expiresAt > now) return cachedSnapshot.value;
-  if (inFlightSnapshot) return inFlightSnapshot;
-
-  inFlightSnapshot = getAvaExecutiveContext()
-    .then(buildSnapshot)
-    .then((value) => {
-      cachedSnapshot = { expiresAt: Date.now() + CACHE_MS, value };
-      return value;
-    })
-    .finally(() => {
-      inFlightSnapshot = null;
-    });
-
-  return inFlightSnapshot;
+export function getAvaNebulaSnapshot(context: AvaExecutiveContext) {
+  return buildSnapshot(context);
 }
 
 export async function getAvaNebulaSnapshotV2({
+  context,
   supabase,
   ownerId,
 }: {
+  context: AvaExecutiveContext;
   supabase?: AvaSupabaseLike | null;
   ownerId?: string | null;
-} = {}): Promise<AvaNebulaSnapshotV2> {
+}): Promise<AvaNebulaSnapshotV2> {
   const [snapshot, notableChanges, recentEvents] = await Promise.all([
-    getAvaNebulaSnapshot(),
+    Promise.resolve(getAvaNebulaSnapshot(context)),
     readRecentAvaMemory({ supabase, ownerId, scope: "ava_core_notable_change", limit: 8 }),
     readRecentAvaMemory({ supabase, ownerId, scope: "ava_core_event", limit: 6 }),
   ]);

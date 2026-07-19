@@ -1,8 +1,8 @@
 import { AvaPageShell, SectionHeader, StatusPill } from "@/app/components/ava-shell";
-import { getAvaExecutiveContext } from "@/lib/ava/core";
+import { getAvaDailyContextForCurrentUser } from "@/lib/ava/daily-context-server";
 
 export default async function IntelligenceFeedPage() {
-  const { intelligenceFeed } = await getAvaExecutiveContext();
+  const { intelligenceFeed } = (await getAvaDailyContextForCurrentUser()).context;
   return (
     <AvaPageShell eyebrow="Ava Intelligence Feed" title="Intelligence Feed" subtitle="I am collecting the signals I notice while working in the background.">
       <section className="panel">

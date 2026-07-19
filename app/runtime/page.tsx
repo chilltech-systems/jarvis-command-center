@@ -1,6 +1,8 @@
 import { Activity, Brain, Clock, Database, HeartPulse, RadioTower, Rows3, Workflow } from "lucide-react";
 import { AvaPageShell, SectionHeader, StatusPill } from "@/app/components/ava-shell";
 import { getAvaRuntime } from "@/lib/ava/runtime";
+import { getAvaDailyContextForCurrentUser } from "@/lib/ava/daily-context-server";
+import { AvaContextRefreshControl } from "@/components/ava-context-refresh-control";
 
 function formatAge(ageMs: number | null) {
   if (ageMs === null) return "No snapshot";
@@ -19,10 +21,7 @@ function entityCounts(runtime: ReturnType<typeof getAvaRuntime>) {
 
 export default async function RuntimeDiagnosticsPage() {
   const runtime = getAvaRuntime();
-  if (runtime.getStatus().lifecycleStage === "shutdown") {
-    await runtime.start();
-  }
-
+  const dailyContext = await getAvaDailyContextForCurrentUser();
   const status = runtime.getStatus();
   const state = runtime.store.getState();
   const runtimeContext = runtime.context.getContext();
@@ -43,7 +42,7 @@ export default async function RuntimeDiagnosticsPage() {
         </article>
         <article className="metric">
           <div className="metric-label"><Clock size={13} /> Snapshot Age</div>
-          <div className="metric-value">{formatAge(runtime.snapshots.getSnapshotAgeMs())}</div>
+          <div className="metric-value">{formatAge(dailyContext.snapshotAgeMs)}</div>
         </article>
         <article className="metric">
           <div className="metric-label"><Workflow size={13} /> Scheduler</div>
@@ -102,13 +101,13 @@ export default async function RuntimeDiagnosticsPage() {
 
       <section className="grid columns home-section">
         <div className="panel">
-          <SectionHeader title="Current Cognition" action={<StatusPill tone={state.latestSnapshot ? "good" : "warning"}>{state.latestSnapshot ? "Ready" : "Pending"}</StatusPill>} />
+          <SectionHeader title="Current Cognition" action={<StatusPill tone={dailyContext.freshness === "fresh" ? "good" : "warning"}>{dailyContext.freshness}</StatusPill>} />
           <div className="detail-grid runtime-detail-grid">
-            <span>Mission Status<strong>{state.latestExecutiveContext?.missionStatus || "Unknown"}</strong></span>
-            <span>Current Focus<strong>{runtimeContext.currentFocus || "No active focus"}</strong></span>
-            <span>Timeline Events<strong>{state.latestTimeline.length}</strong></span>
-            <span>Visible Changes<strong>{state.latestVisibleChanges.length}</strong></span>
-            <span>Recommendations<strong>{state.latestRecommendations.length}</strong></span>
+            <span>Mission Status<strong>{dailyContext.context.missionStatus}</strong></span>
+            <span>Current Focus<strong>{dailyContext.context.raw.cognitiveState.reasoning.suggestedFocus || "No active focus"}</strong></span>
+            <span>Timeline Events<strong>{dailyContext.context.raw.cognitiveState.timeline.length}</strong></span>
+            <span>Visible Changes<strong>{dailyContext.context.recentChanges.length}</strong></span>
+            <span>Recommendations<strong>{dailyContext.context.recommendedActions.length}</strong></span>
             <span>Heartbeat<strong>{status.heartbeatCount}</strong></span>
           </div>
         </div>
@@ -157,6 +156,22 @@ export default async function RuntimeDiagnosticsPage() {
             {!recentEvents.length ? <div className="row"><span className="dot warning" /><div><div className="row-title">No runtime events yet</div><div className="row-meta">Start the runtime to populate event history.</div></div></div> : null}
           </div>
         </div>
+      </section>
+
+      <section className="panel home-section">
+        <SectionHeader title="Daily Context Usage Stop" action={<StatusPill tone={dailyContext.usage.stopEngaged ? "danger" : "good"}>{dailyContext.usage.stopEngaged ? "engaged" : "guarded"}</StatusPill>} />
+        <div className="detail-grid">
+          <span>Central Date<strong>{dailyContext.centralDate}</strong></span>
+          <span>Generated<strong>{dailyContext.generatedAt}</strong></span>
+          <span>Reserved Executions<strong>{dailyContext.usage.reservedExecutions} / 12</strong></span>
+          <span>Remaining<strong>{dailyContext.usage.remainingExecutions}</strong></span>
+          <span>Automatic Attempts<strong>{dailyContext.usage.automaticAttempts} / 2</strong></span>
+          <span>Retry State<strong>{dailyContext.usage.retryState.replace("_", " ")}</strong></span>
+          <span>Manual Override<strong>{dailyContext.usage.manualOverrideUsed ? "used" : "available"}</strong></span>
+          <span>Last Status<strong>{dailyContext.usage.lastStatus}</strong></span>
+          <span>Source Failures<strong>{dailyContext.sourceFailures.join(", ") || "none"}</strong></span>
+        </div>
+        <AvaContextRefreshControl canRequest={!dailyContext.usage.manualOverrideUsed && !dailyContext.usage.refreshInProgress && dailyContext.usage.remainingExecutions >= 3} />
       </section>
 
       <section className="panel home-section">

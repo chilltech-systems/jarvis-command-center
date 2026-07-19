@@ -1,0 +1,232 @@
+{
+  "name": "Ava Daily Context Batch v1",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "AVA DAILY CONTEXT BATCH\n\nOne Tool Hub executor execution gathers the open Todoist task set, today's completed Todoist activity, and both Gmail accounts. Tasks and schedule are derived from the same open-task result in the app.\n\nRequires X-JARVIS-INTERNAL matching the n8n JARVIS_TOKEN variable. Import inactive until a production-shaped refresh succeeds.",
+        "height": 280,
+        "width": 460
+      },
+      "id": "e1368ce7-f5b8-437d-b9e4-fff9ba141b78",
+      "name": "Sticky - Batch Contract",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-880, -420]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "jarvis-tools/ava-context-refresh",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "32324a0f-2315-4c88-8ff1-a851e69c3296",
+      "name": "ava.context.refresh",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-880, 0],
+      "webhookId": "75bd8578-800a-4a83-a6a7-b1e00c8f4518"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $json;\nconst headers = input.headers || {};\nconst body = input.body || input;\nconst internal = headers['x-jarvis-internal'] || headers['X-JARVIS-INTERNAL'];\nconst expectedToken = typeof $vars !== 'undefined' ? $vars.JARVIS_TOKEN : '';\nconst parameters = body.parameters || {};\nconst startedAt = Date.now();\nconst validDate = /^\\d{4}-\\d{2}-\\d{2}$/.test(parameters.centralDate || '');\nconst validWindow = !Number.isNaN(Date.parse(parameters.since || '')) && !Number.isNaN(Date.parse(parameters.until || ''));\nconst authorized = Boolean(expectedToken && internal === expectedToken);\nconst valid = authorized && body.tool === 'ava.context.refresh' && validDate && validWindow;\nreturn [{ json: { valid, authorized, parameters, requestId: body.requestId, startedAt, error: !authorized ? 'Unauthorized executor request' : body.tool !== 'ava.context.refresh' ? 'Invalid Ava context tool' : !validDate || !validWindow ? 'Missing or invalid Central date window' : null } }];"
+      },
+      "id": "db9efc46-07f9-423c-ac96-163cbff62466",
+      "name": "Validate Batch Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-660, 0]
+    },
+    {
+      "parameters": {
+        "conditions": { "boolean": [{ "value1": "={{$json.valid}}", "value2": true }] },
+        "options": {}
+      },
+      "id": "084ff829-c770-45bb-a8ca-6f047d3c429c",
+      "name": "Valid Batch Request?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-440, 0]
+    },
+    {
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "url": "https://api.todoist.com/api/v1/tasks/filter",
+        "sendQuery": true,
+        "queryParameters": { "parameters": [{ "name": "query", "value": "today | overdue | 7 days | no date" }] },
+        "options": { "timeout": 30000 }
+      },
+      "id": "6d292058-efb2-46e4-91b6-f7c5d9e72b23",
+      "name": "Todoist Open Task Set",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-180, -330],
+      "onError": "continueRegularOutput",
+      "credentials": { "httpBearerAuth": { "id": "BiUTciSItc3VUkOO", "name": "Todoist API" } }
+    },
+    {
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "url": "https://api.todoist.com/api/v1/activities",
+        "sendQuery": true,
+        "queryParameters": { "parameters": [
+          { "name": "object_event_types", "value": "[\"item:completed\"]" },
+          { "name": "date_from", "value": "={{$('Validate Batch Request').first().json.parameters.since}}" },
+          { "name": "date_to", "value": "={{$('Validate Batch Request').first().json.parameters.until}}" },
+          { "name": "limit", "value": "100" }
+        ] },
+        "options": { "timeout": 30000 }
+      },
+      "id": "f037019e-a620-4897-82bb-61d7bc5840bb",
+      "name": "Todoist Completed Today",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-180, -110],
+      "onError": "continueRegularOutput",
+      "credentials": { "httpBearerAuth": { "id": "BiUTciSItc3VUkOO", "name": "Todoist API" } }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "returnAll": false,
+        "limit": 25,
+        "simple": true,
+        "filters": { "search": "in:inbox newer_than:7d -category:promotions -category:social" },
+        "options": {}
+      },
+      "id": "103283b9-9a44-4bac-9fdd-785ce03daaca",
+      "name": "Gmail CHILL TECH Attention",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [-180, 110],
+      "onError": "continueRegularOutput",
+      "credentials": { "gmailOAuth2": { "id": "MRT8bdEn9YEUn6qp", "name": "CHILL TECH EMAIL" } }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "returnAll": false,
+        "limit": 25,
+        "simple": false,
+        "filters": { "search": "in:inbox newer_than:7d -category:promotions -category:social" },
+        "options": {}
+      },
+      "id": "596be2a4-ed10-41a9-a896-86ad36e0e63a",
+      "name": "Gmail IDAD Attention",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [-180, 330],
+      "onError": "continueRegularOutput",
+      "credentials": { "gmailOAuth2": { "id": "BNc8NAnSUj5qQgaZ", "name": "Gmail account - iDAD" } }
+    },
+    {
+      "parameters": { "jsCode": "const items = $input.all().map(item => item.json);\nconst failed = items.find(item => item.error || item.statusCode >= 400);\nconst first = items[0] || {};\nconst tasks = Array.isArray(first.results) ? first.results : Array.isArray(first.tasks) ? first.tasks : Array.isArray(first.items) ? first.items : failed ? [] : items;\nreturn [{ json: { source: 'todoist:tasks', ok: !failed, data: tasks, error: failed ? String(failed.error?.message || failed.message || 'Todoist open-task read failed') : null } }];" },
+      "id": "e258d89f-7b33-4400-aa48-27291de8f595",
+      "name": "Pack Todoist Tasks",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [60, -330]
+    },
+    {
+      "parameters": { "jsCode": "const items = $input.all().map(item => item.json);\nconst failed = items.find(item => item.error || item.statusCode >= 400);\nconst first = items[0] || {};\nconst data = Array.isArray(first.items) || Array.isArray(first.results) || Array.isArray(first.tasks) ? first : { items };\nreturn [{ json: { source: 'todoist:completed', ok: !failed, data: failed ? { items: [] } : data, error: failed ? String(failed.error?.message || failed.message || 'Todoist completed-task read failed') : null } }];" },
+      "id": "b3dc547d-b233-483b-ab60-2210a4bbf82f",
+      "name": "Pack Todoist Completed",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [60, -110]
+    },
+    {
+      "parameters": { "jsCode": "const items = $input.all().map(item => item.json);\nconst failed = items.find(item => item.error || item.statusCode >= 400);\nreturn [{ json: { source: 'gmail:chill-tech', ok: !failed, data: failed ? [] : items, error: failed ? String(failed.error?.message || failed.message || 'CHILL TECH Gmail read failed') : null } }];" },
+      "id": "448524fe-a245-447e-bb26-50d23d8b8f3a",
+      "name": "Pack Gmail CHILL TECH",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [60, 110]
+    },
+    {
+      "parameters": { "jsCode": "const items = $input.all().map(item => item.json);\nconst failed = items.find(item => item.error || item.statusCode >= 400);\nreturn [{ json: { source: 'gmail:idad', ok: !failed, data: failed ? [] : items, error: failed ? String(failed.error?.message || failed.message || 'IDAD Gmail read failed') : null } }];" },
+      "id": "3329921f-175f-47dc-bfa1-fd7048ad87f0",
+      "name": "Pack Gmail IDAD",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [60, 330]
+    },
+    {
+      "parameters": { "mode": "combine", "combineBy": "combineByPosition", "options": {} },
+      "id": "992d7ea3-95f4-4e38-927c-49150e0e7de4",
+      "name": "Wait For Todoist",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [300, -220]
+    },
+    {
+      "parameters": { "mode": "combine", "combineBy": "combineByPosition", "options": {} },
+      "id": "f5d7600e-3524-409d-a8dc-ed75827cd8c5",
+      "name": "Wait For Gmail",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [300, 220]
+    },
+    {
+      "parameters": { "mode": "combine", "combineBy": "combineByPosition", "options": {} },
+      "id": "4ea334c8-f2ed-4c8c-bce6-83d477dc250c",
+      "name": "Wait For All Sources",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [520, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const validation = $('Validate Batch Request').first().json;\nconst tasks = $('Pack Todoist Tasks').first().json;\nconst completed = $('Pack Todoist Completed').first().json;\nconst chill = $('Pack Gmail CHILL TECH').first().json;\nconst idad = $('Pack Gmail IDAD').first().json;\nconst sources = [tasks, completed, chill, idad];\nconst sourceFailures = sources.filter(source => !source.ok).map(source => source.source);\nreturn [{ json: { success: true, tool: 'ava.context.refresh', timestamp: new Date().toISOString(), data: { todoist: { tasks: tasks.data, completed: completed.data }, gmail: { 'chill-tech': chill.data, idad: idad.data }, sourceFailures, sourceStatus: Object.fromEntries(sources.map(source => [source.source, { ok: source.ok, error: source.error }])) }, requestId: validation.requestId, durationMs: Date.now() - validation.startedAt, adapter: 'n8n-ava-context-batch' } }];"
+      },
+      "id": "cd02ac78-a44d-45e9-973a-1e5c0def0607",
+      "name": "Build Batch Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [760, 0]
+    },
+    {
+      "parameters": { "jsCode": "const validation = $('Validate Batch Request').first().json;\nreturn [{ json: { success: false, tool: 'ava.context.refresh', timestamp: new Date().toISOString(), error: validation.error || 'Invalid batch request', requestId: validation.requestId, durationMs: Date.now() - validation.startedAt, adapter: 'n8n-ava-context-batch' } }];" },
+      "id": "bf70ad2e-14c4-4ee4-bf85-c79b17494451",
+      "name": "Invalid Batch Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-180, 510]
+    }
+  ],
+  "connections": {
+    "ava.context.refresh": { "main": [[{ "node": "Validate Batch Request", "type": "main", "index": 0 }]] },
+    "Validate Batch Request": { "main": [[{ "node": "Valid Batch Request?", "type": "main", "index": 0 }]] },
+    "Valid Batch Request?": { "main": [[
+      { "node": "Todoist Open Task Set", "type": "main", "index": 0 },
+      { "node": "Todoist Completed Today", "type": "main", "index": 0 },
+      { "node": "Gmail CHILL TECH Attention", "type": "main", "index": 0 },
+      { "node": "Gmail IDAD Attention", "type": "main", "index": 0 }
+    ], [{ "node": "Invalid Batch Response", "type": "main", "index": 0 }]] },
+    "Todoist Open Task Set": { "main": [[{ "node": "Pack Todoist Tasks", "type": "main", "index": 0 }]] },
+    "Todoist Completed Today": { "main": [[{ "node": "Pack Todoist Completed", "type": "main", "index": 0 }]] },
+    "Gmail CHILL TECH Attention": { "main": [[{ "node": "Pack Gmail CHILL TECH", "type": "main", "index": 0 }]] },
+    "Gmail IDAD Attention": { "main": [[{ "node": "Pack Gmail IDAD", "type": "main", "index": 0 }]] },
+    "Pack Todoist Tasks": { "main": [[{ "node": "Wait For Todoist", "type": "main", "index": 0 }]] },
+    "Pack Todoist Completed": { "main": [[{ "node": "Wait For Todoist", "type": "main", "index": 1 }]] },
+    "Pack Gmail CHILL TECH": { "main": [[{ "node": "Wait For Gmail", "type": "main", "index": 0 }]] },
+    "Pack Gmail IDAD": { "main": [[{ "node": "Wait For Gmail", "type": "main", "index": 1 }]] },
+    "Wait For Todoist": { "main": [[{ "node": "Wait For All Sources", "type": "main", "index": 0 }]] },
+    "Wait For Gmail": { "main": [[{ "node": "Wait For All Sources", "type": "main", "index": 1 }]] },
+    "Wait For All Sources": { "main": [[{ "node": "Build Batch Response", "type": "main", "index": 0 }]] }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "timezone": "America/Chicago",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "e81ee20c-dd56-46ef-a763-a7848676052c",
+  "meta": { "templateCredsSetupCompleted": false },
+  "tags": []
+}

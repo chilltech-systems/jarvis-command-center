@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { AvaPageShell, SectionHeader, StatusPill } from "@/app/components/ava-shell";
 import { AutomationsStatusCenter } from "@/app/components/automations-status-center";
-import { getAvaExecutiveContext } from "@/lib/ava/core";
+import { getAvaDailyContextForCurrentUser } from "@/lib/ava/daily-context-server";
 
 export default async function Home() {
-  const executiveContext = await getAvaExecutiveContext();
+  const dailyContext = await getAvaDailyContextForCurrentUser();
+  const executiveContext = dailyContext.context;
   const tasks = executiveContext.raw.cognitiveState.awareness.tasks as Awaited<ReturnType<typeof import("@/lib/ava/todoist").getAvaTasks>>;
   const completedTasks = executiveContext.raw.cognitiveState.awareness.completedTasks as Awaited<ReturnType<typeof import("@/lib/ava/completed-tasks").getAvaCompletedTasks>>;
   const liveWeather = executiveContext.raw.cognitiveState.awareness.weather as Awaited<ReturnType<typeof import("@/lib/ava/weather").getAvaWeather>>;
@@ -20,7 +21,7 @@ export default async function Home() {
     <AvaPageShell eyebrow="Ava Dashboard" title="Home" subtitle="I am watching the day quietly and surfacing what matters first.">
       <section className="grid home-grid">
         <div className="panel attention-panel">
-          <SectionHeader title="Daily Snapshot" action={<StatusPill tone="warning">1 review</StatusPill>} />
+          <SectionHeader title="Daily Snapshot" action={<StatusPill tone={dailyContext.freshness === "fresh" ? "good" : "warning"}>{dailyContext.freshness}</StatusPill>} />
           <p className="snapshot-copy">{dailyBrief.summary}</p>
         </div>
         <div className="panel">

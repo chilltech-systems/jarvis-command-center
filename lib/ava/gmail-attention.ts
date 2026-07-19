@@ -1,9 +1,9 @@
 import { callToolHub } from "@/lib/jarvis/tool-hub";
 
-type GmailAccountId = "chill-tech" | "idad";
+export type GmailAccountId = "chill-tech" | "idad";
 type GmailSeverity = "normal" | "warning" | "urgent";
 
-type RawGmailMessage = {
+export type RawGmailMessage = {
   id?: string;
   threadId?: string;
   thread_id?: string;
@@ -219,6 +219,10 @@ export async function getAvaGmailAttention() {
   const accounts = await Promise.all(
     GMAIL_ACCOUNTS.map(({ account, label }) => readAccount(account, label)),
   );
+  return buildAvaGmailAttention(accounts);
+}
+
+function buildAvaGmailAttention(accounts: AvaGmailAttentionAccount[]) {
   const attentionCount = accounts.reduce((sum, account) => sum + account.attentionCount, 0);
   const unreadCount = accounts.reduce((sum, account) => sum + account.unreadCount, 0);
   const urgentCount = accounts.reduce((sum, account) => sum + account.urgentCount, 0);
@@ -236,4 +240,39 @@ export async function getAvaGmailAttention() {
       ? failedAccounts.map((account) => `${account.label}: ${account.error}`).join("; ")
       : null,
   };
+}
+
+export function buildAvaGmailAttentionFromBatch({
+  messages,
+  errors = {},
+}: {
+  messages: Partial<Record<GmailAccountId, unknown>>;
+  errors?: Partial<Record<GmailAccountId, string | null>>;
+}) {
+  const accounts = GMAIL_ACCOUNTS.map(({ account, label }) => {
+    const extracted = extractMessages(messages[account]);
+    if (!extracted) {
+      return {
+        account,
+        label,
+        attentionCount: 0,
+        unreadCount: 0,
+        urgentCount: 0,
+        items: [],
+        error: errors[account] || "Unexpected Gmail response format",
+      } satisfies AvaGmailAttentionAccount;
+    }
+    const items = extracted.map((message) => normalizeMessage(message, account, label));
+    return {
+      account,
+      label,
+      attentionCount: items.length,
+      unreadCount: items.filter((item) => item.unread).length,
+      urgentCount: items.filter((item) => item.severity === "urgent").length,
+      items,
+      error: errors[account] || null,
+    } satisfies AvaGmailAttentionAccount;
+  });
+
+  return buildAvaGmailAttention(accounts);
 }

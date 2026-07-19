@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getAvaGmailAttention } from "@/lib/ava/gmail-attention";
+import { getAvaDailyContextForCurrentUser } from "@/lib/ava/daily-context-server";
 
 export async function GET() {
-  return NextResponse.json(await getAvaGmailAttention());
+  return NextResponse.json((await getAvaDailyContextForCurrentUser()).context.raw.cognitiveState.awareness.gmail);
 }

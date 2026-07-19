@@ -102,6 +102,65 @@ for (const pattern of obviousSecretPatterns) {
   if (pattern.test(raw)) errors.push(`Possible embedded secret matched pattern: ${pattern}`);
 }
 
+function validateAvaContextWorkflow(filename, requiredNames) {
+  const avaPath = path.resolve(__dirname, `../n8n/workflows/${filename}`);
+  let avaRaw;
+  let avaWorkflow;
+  try {
+    avaRaw = fs.readFileSync(avaPath, 'utf8');
+    avaWorkflow = JSON.parse(avaRaw);
+  } catch (error) {
+    errors.push(`Unable to parse ${filename}: ${error.message}`);
+    return;
+  }
+  if (avaWorkflow.active !== false) errors.push(`${filename} must import inactive.`);
+  if (avaWorkflow.settings?.timezone !== 'America/Chicago') errors.push(`${filename} must use America/Chicago.`);
+  const avaNodes = Array.isArray(avaWorkflow.nodes) ? avaWorkflow.nodes : [];
+  const avaNames = avaNodes.map(node => node.name);
+  const avaIds = avaNodes.map(node => node.id);
+  for (const requiredName of requiredNames) {
+    if (!avaNames.includes(requiredName)) errors.push(`${filename} is missing ${requiredName}.`);
+  }
+  for (const values of [avaNames, avaIds]) {
+    const duplicates = values.filter((value, index) => values.indexOf(value) !== index);
+    if (duplicates.length) errors.push(`${filename} has duplicate node identifiers: ${[...new Set(duplicates)].join(', ')}`);
+  }
+  for (const [source, groups] of Object.entries(avaWorkflow.connections || {})) {
+    if (!avaNames.includes(source)) errors.push(`${filename} connection source does not exist: ${source}`);
+    for (const outputs of Object.values(groups || {})) {
+      for (const output of outputs || []) {
+        for (const connection of output || []) {
+          if (!avaNames.includes(connection.node)) errors.push(`${filename} connection target does not exist: ${connection.node}`);
+        }
+      }
+    }
+  }
+  for (const pattern of obviousSecretPatterns) {
+    if (pattern.test(avaRaw)) errors.push(`${filename} matched possible embedded secret pattern: ${pattern}`);
+  }
+}
+
+validateAvaContextWorkflow('ava-daily-context-batch.json', [
+  'ava.context.refresh',
+  'Todoist Open Task Set',
+  'Todoist Completed Today',
+  'Gmail CHILL TECH Attention',
+  'Gmail IDAD Attention',
+  'Build Batch Response',
+]);
+validateAvaContextWorkflow('ava-daily-context-schedule.json', [
+  'Daily at 6 AM Central',
+  'Protected Refresh Attempt 1',
+  'Wait 15 Minutes',
+  'Protected Refresh Attempt 2',
+]);
+
+const scheduleWorkflow = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../n8n/workflows/ava-daily-context-schedule.json'), 'utf8'));
+const contextSchedule = scheduleWorkflow.nodes.find(node => node.name === 'Daily at 6 AM Central');
+if (contextSchedule?.parameters?.rule?.interval?.[0]?.expression !== '0 6 * * *') errors.push('Ava context schedule must be 0 6 * * *.');
+const retryWait = scheduleWorkflow.nodes.find(node => node.name === 'Wait 15 Minutes');
+if (retryWait?.parameters?.amount !== 15 || retryWait?.parameters?.unit !== 'minutes') errors.push('Ava context retry must wait exactly 15 minutes.');
+
 const connectorNames = ['AI Error Diagnosis', 'Jarvis OpenAI Model', 'Send Jarvis Slack Alert', 'Append to Jarvis Event Log', 'Read Event Log for Health', 'Read Event Log for Daily Summary'];
 for (const name of connectorNames) {
   const node = nodes.find(candidate => candidate.name === name);

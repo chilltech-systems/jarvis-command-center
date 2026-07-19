@@ -1,6 +1,7 @@
 import { AvaPageShell, SectionHeader, StatusPill } from "@/app/components/ava-shell";
-import { getAvaCompletedTasks, type AvaCompletedTask } from "@/lib/ava/completed-tasks";
-import { getAvaTasks, type AvaTask } from "@/lib/ava/todoist";
+import type { AvaCompletedTask } from "@/lib/ava/completed-tasks";
+import type { AvaTask } from "@/lib/ava/todoist";
+import { getAvaDailyContextForCurrentUser } from "@/lib/ava/daily-context-server";
 
 function TaskList({ title, tasks }: { title: string; tasks: AvaTask[] }) {
   return (
@@ -25,16 +26,16 @@ function CompletedTaskList({ tasks }: { tasks: AvaCompletedTask[] }) {
 }
 
 export default async function TasksPage() {
-  const [{ groups, source, error }, completedTasks] = await Promise.all([
-    getAvaTasks(),
-    getAvaCompletedTasks(),
-  ]);
+  const dailyContext = await getAvaDailyContextForCurrentUser();
+  const awareness = dailyContext.context.raw.cognitiveState.awareness;
+  const { groups, source, error } = awareness.tasks as Awaited<ReturnType<typeof import("@/lib/ava/todoist").getAvaTasks>>;
+  const completedTasks = awareness.completedTasks as Awaited<ReturnType<typeof import("@/lib/ava/completed-tasks").getAvaCompletedTasks>>;
   const scheduledHighPriority = groups.highPriority.filter((task) => task.hasSchedule);
 
   return (
     <AvaPageShell eyebrow="Ava Tasks" title="Tasks" subtitle="I am sorting Todoist into what is late, due, next, and already handled.">
       <section className="panel source-panel">
-        <SectionHeader title="Todoist Connection" action={<StatusPill tone={source === "live-todoist" ? "good" : "warning"}>{source === "live-todoist" ? "Live" : "Mock fallback"}</StatusPill>} />
+        <SectionHeader title="Todoist Connection" action={<StatusPill tone={source === "live-todoist" ? "good" : "warning"}>{source === "live-todoist" ? "Daily snapshot" : "Mock fallback"}</StatusPill>} />
         <p className="subtle">{source === "live-todoist" ? "I am showing scheduled Todoist items here. I keep unscheduled items out of the way but available for context." : `I am showing mock tasks because I could not read Todoist yet: ${error}`}</p>
       </section>
       <section className="grid brief-grid">

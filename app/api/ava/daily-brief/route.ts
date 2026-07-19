@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { getAvaExecutiveContext } from "@/lib/ava/core";
+import { getAvaDailyContextForCurrentUser } from "@/lib/ava/daily-context-server";
 
 export async function GET() {
-  const executiveContext = await getAvaExecutiveContext();
+  const executiveContext = (await getAvaDailyContextForCurrentUser()).context;
 
   return NextResponse.json(executiveContext.dailyBrief);
 }

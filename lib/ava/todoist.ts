@@ -147,17 +147,20 @@ export async function getAvaTasks(filter?: string) {
     ]);
   const todoistTasks = reads.flatMap((read) => read.todoistTasks || []);
   const failedRead = reads.find((read) => !read.todoistTasks);
+  return buildAvaTasksFromTodoist(todoistTasks, failedRead?.response.error || null);
+}
+
+export function buildAvaTasksFromTodoist(todoistTasks: TodoistTask[], error: string | null = null) {
   const tasks = sortAvaTasksByDate(todoistTasks.length ? uniqueTasks(todoistTasks.map(mapTodoistTask)) : mockAsAvaTasks());
   return {
     source: todoistTasks.length ? "live-todoist" : "mock",
-    error: todoistTasks.length ? null : failedRead?.response.error || "Unexpected Todoist response format",
+    error: todoistTasks.length ? null : error || "Unexpected Todoist response format",
     tasks,
     groups: groupAvaTasks(tasks),
   };
 }
 
-export async function getAvaSchedule() {
-  const data = await getAvaTasks("today | overdue | 7 days");
+export function buildAvaScheduleFromTasks(data: Awaited<ReturnType<typeof getAvaTasks>>) {
   const today = todayLocalDate();
   const scheduledItems = data.tasks.filter((task) => task.hasSchedule);
   const todayItems = scheduledItems.filter((task) => task.status !== "upcoming");
@@ -170,4 +173,8 @@ export async function getAvaSchedule() {
     todayItems,
     upcomingItems,
   };
+}
+
+export async function getAvaSchedule() {
+  return buildAvaScheduleFromTasks(await getAvaTasks("today | overdue | 7 days"));
 }

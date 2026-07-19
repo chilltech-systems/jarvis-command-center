@@ -75,7 +75,6 @@ export function AvaMindCanvas() {
 
   useEffect(() => {
     let active = true;
-    let timer: ReturnType<typeof setTimeout> | null = null;
     const refresh = async () => {
       try {
         const response = await fetch("/api/ava/nebula-state", { cache: "no-store" });
@@ -85,14 +84,11 @@ export function AvaMindCanvas() {
       } catch {
         // Keep the last valid frame; the interface will continue in degraded visual mode.
       } finally {
-        if (active) {
-          setLoading(false);
-          timer = setTimeout(refresh, 8_000);
-        }
+        if (active) setLoading(false);
       }
     };
     void refresh();
-    return () => { active = false; if (timer) clearTimeout(timer); };
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {

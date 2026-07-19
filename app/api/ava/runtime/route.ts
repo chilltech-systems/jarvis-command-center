@@ -1,23 +1,12 @@
 import { NextResponse } from "next/server";
 import { getAvaRuntime } from "@/lib/ava/runtime";
-
-async function getStartedRuntime() {
-  const runtime = getAvaRuntime();
-  const status = runtime.getStatus();
-
-  if (status.lifecycleStage === "shutdown") {
-    await runtime.start();
-  }
-
-  return runtime;
-}
+import { getAvaDailyContextForCurrentUser } from "@/lib/ava/daily-context-server";
 
 export async function GET() {
-  const runtime = await getStartedRuntime();
+  const runtime = getAvaRuntime();
+  const dailyContext = await getAvaDailyContextForCurrentUser();
   const status = runtime.getStatus();
   const state = runtime.store.getState();
-  const runtimeContext = runtime.context.getContext();
-  const snapshotAgeMs = runtime.snapshots.getSnapshotAgeMs();
   const health = status.health;
 
   return NextResponse.json({
@@ -30,9 +19,17 @@ export async function GET() {
     },
     schedulerStatus: status.scheduler.status,
     schedulerJobs: status.scheduler.jobs,
-    currentSnapshotAgeMs: snapshotAgeMs,
-    currentMissionStatus: state.latestExecutiveContext?.missionStatus || null,
-    currentFocus: runtimeContext.currentFocus,
+    currentSnapshotAgeMs: dailyContext.snapshotAgeMs,
+    currentMissionStatus: dailyContext.context.missionStatus,
+    currentFocus: dailyContext.context.raw.cognitiveState.reasoning.suggestedFocus,
+    dailyContext: {
+      centralDate: dailyContext.centralDate,
+      generatedAt: dailyContext.generatedAt,
+      freshness: dailyContext.freshness,
+      sourceFailures: dailyContext.sourceFailures,
+      sourceStatus: dailyContext.sourceStatus,
+      usage: dailyContext.usage,
+    },
     healthSummary: {
       status: health.status,
       errors: health.errors.length,

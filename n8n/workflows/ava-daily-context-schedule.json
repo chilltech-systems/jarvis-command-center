@@ -1,0 +1,114 @@
+{
+  "name": "Ava Daily Context Refresh - 6 AM Central",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "AVA DAILY REFRESH SCHEDULER\n\nRuns once at 6:00 a.m. America/Chicago. Calls the protected app endpoint. Only a complete refresh failure enters one 15-minute retry. Partial source results are persisted and do not retry.\n\nRequires n8n variables AVA_CONTEXT_REFRESH_URL and AVA_CONTEXT_REFRESH_TOKEN. Import inactive; activate only after a production-shaped authenticated request succeeds.",
+        "height": 300,
+        "width": 460
+      },
+      "id": "8afc2317-e9e1-44fe-b85b-2f2ac7704248",
+      "name": "Sticky - Activation Gate",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-700, -320]
+    },
+    {
+      "parameters": { "rule": { "interval": [{ "field": "cronExpression", "expression": "0 6 * * *" }] } },
+      "id": "34d01d96-6e2f-42dd-af7c-9193b40173c7",
+      "name": "Daily at 6 AM Central",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-700, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$vars.AVA_CONTEXT_REFRESH_URL}}",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [
+          { "name": "Authorization", "value": "=Bearer {{$vars.AVA_CONTEXT_REFRESH_TOKEN}}" },
+          { "name": "Content-Type", "value": "application/json" }
+        ] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify({ source: 'n8n-daily-schedule', attempt: 1 })}}",
+        "options": { "response": { "response": { "fullResponse": true, "neverError": true, "responseFormat": "json" } }, "timeout": 120000 }
+      },
+      "id": "84b5cd71-7507-4886-b4ce-c213a907595d",
+      "name": "Protected Refresh Attempt 1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-460, 0]
+    },
+    {
+      "parameters": {
+        "conditions": { "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 }, "conditions": [{ "id": "complete-failure", "leftValue": "={{$json.body?.status || ($json.statusCode >= 500 ? 'failed' : 'success')}}", "rightValue": "failed", "operator": { "type": "string", "operation": "equals" } }], "combinator": "and" },
+        "options": {}
+      },
+      "id": "c3533a07-a008-447b-8984-0a63c1fb7da1",
+      "name": "Complete Failure?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-220, 0]
+    },
+    {
+      "parameters": { "amount": 15, "unit": "minutes" },
+      "id": "baaf8a62-15e8-40f6-ae54-7ed5e858e931",
+      "name": "Wait 15 Minutes",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [20, -100],
+      "webhookId": "2f886a9e-a2cd-453c-b13c-e61f6867e881"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$vars.AVA_CONTEXT_REFRESH_URL}}",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [
+          { "name": "Authorization", "value": "=Bearer {{$vars.AVA_CONTEXT_REFRESH_TOKEN}}" },
+          { "name": "Content-Type", "value": "application/json" }
+        ] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify({ source: 'n8n-daily-schedule', attempt: 2 })}}",
+        "options": { "response": { "response": { "fullResponse": true, "neverError": true, "responseFormat": "json" } }, "timeout": 120000 }
+      },
+      "id": "17cfd54f-da8f-4517-a527-5a8b658f04be",
+      "name": "Protected Refresh Attempt 2",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [260, -100]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $json.body || $json;\nreturn [{ json: { complete: response.status === 'success' || response.status === 'partial', status: response.status || 'unknown', freshness: response.context?.freshness || null, generatedAt: response.context?.generatedAt || null, usage: response.context?.usage || null, reason: response.reason || null, finishedAt: new Date().toISOString() } }];"
+      },
+      "id": "a697572c-15dd-4c05-83d5-5e02303d82a9",
+      "name": "Record Scheduler Outcome",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [500, 0]
+    }
+  ],
+  "connections": {
+    "Daily at 6 AM Central": { "main": [[{ "node": "Protected Refresh Attempt 1", "type": "main", "index": 0 }]] },
+    "Protected Refresh Attempt 1": { "main": [[{ "node": "Complete Failure?", "type": "main", "index": 0 }]] },
+    "Complete Failure?": { "main": [[{ "node": "Wait 15 Minutes", "type": "main", "index": 0 }], [{ "node": "Record Scheduler Outcome", "type": "main", "index": 0 }]] },
+    "Wait 15 Minutes": { "main": [[{ "node": "Protected Refresh Attempt 2", "type": "main", "index": 0 }]] },
+    "Protected Refresh Attempt 2": { "main": [[{ "node": "Record Scheduler Outcome", "type": "main", "index": 0 }]] }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "timezone": "America/Chicago",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "3d5a4e7b-8d30-414e-97fd-bb8765e04fe4",
+  "meta": { "templateCredsSetupCompleted": false },
+  "tags": []
+}

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { getAvaTasks } from "@/lib/ava/todoist";
+import { getAvaDailyContextForCurrentUser } from "@/lib/ava/daily-context-server";
 
 export async function GET() {
-  const data = await getAvaTasks();
+  const data = (await getAvaDailyContextForCurrentUser()).context.raw.cognitiveState.awareness.tasks;
   return NextResponse.json(data);
 }

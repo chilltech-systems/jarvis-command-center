@@ -1,9 +1,10 @@
 import { AvaPageShell, SectionHeader, StatusPill } from "@/app/components/ava-shell";
 import { calendarEvents, freeBlocks, upcomingEvents } from "@/lib/mock-data/ava";
-import { getAvaSchedule } from "@/lib/ava/todoist";
+import { getAvaDailyContextForCurrentUser } from "@/lib/ava/daily-context-server";
 
 export default async function CalendarPage() {
-  const schedule = await getAvaSchedule();
+  const awareness = (await getAvaDailyContextForCurrentUser()).context.raw.cognitiveState.awareness;
+  const schedule = awareness.calendar as Awaited<ReturnType<typeof import("@/lib/ava/todoist").getAvaSchedule>>;
   const liveToday = schedule.source === "live-todoist" ? schedule.todayItems : [];
   const liveUpcoming = schedule.source === "live-todoist" ? schedule.upcomingItems : [];
 
