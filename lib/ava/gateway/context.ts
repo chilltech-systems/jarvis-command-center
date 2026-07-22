@@ -130,6 +130,7 @@ export async function compileAvaContext({
       context.calendarSummary,
     ]),
     layer(4, "Situational awareness", [
+      `Daily awareness snapshot: ${daily.freshness}; age ${daily.snapshotAgeMs}ms; generated ${daily.generatedAt}.`,
       context.personalSummary,
       context.businessSummary,
       context.automationSummary,

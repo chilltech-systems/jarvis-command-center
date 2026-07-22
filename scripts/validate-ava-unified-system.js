@@ -26,7 +26,7 @@ for (const disabled of ["calendar_list", "calendar_create", "sheets_read", "shee
 }
 
 const context = read("lib/ava/gateway/context.ts");
-for (const marker of ["dailySourceHealth", "getAvaExecutionBudget", "capabilityHealth", "executionBudget"]) {
+for (const marker of ["dailySourceHealth", "getAvaExecutionBudget", "capabilityHealth", "executionBudget", "Daily awareness snapshot:"]) {
   if (!context.includes(marker)) throw new Error(`Unified context marker missing: ${marker}`);
 }
 
