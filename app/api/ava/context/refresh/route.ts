@@ -19,7 +19,15 @@ function tokenMatches(request: Request, expected: string | undefined) {
 }
 
 export async function POST(request: Request) {
-  const automatic = tokenMatches(request, process.env.AVA_CONTEXT_REFRESH_TOKEN);
+  const expectedToken = process.env.AVA_CONTEXT_REFRESH_TOKEN;
+  const automatic = tokenMatches(request, expectedToken);
+  if (!automatic && request.headers.get("authorization")?.startsWith("Bearer ")) {
+    console.warn("Ava automatic context refresh authentication mismatch.", {
+      expectedConfigured: Boolean(expectedToken),
+      expectedLength: expectedToken?.length || 0,
+      suppliedLength: (request.headers.get("authorization") || "").slice(7).length,
+    });
+  }
   const body = await request.json().catch(() => ({}));
 
   if (automatic) {

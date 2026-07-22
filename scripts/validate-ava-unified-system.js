@@ -40,4 +40,9 @@ if (!proxy.includes('request.nextUrl.pathname === "/api/ava/context/refresh"')) 
   throw new Error("The protected automatic refresh route must reach its bearer-token validator.");
 }
 
+const refresh = read("app/api/ava/context/refresh/route.ts");
+if (!refresh.includes("expectedConfigured") || !refresh.includes("suppliedLength")) {
+  throw new Error("Protected refresh auth diagnostics must remain secret-free and length-only.");
+}
+
 console.log("AVA_UNIFIED_SYSTEM_OK");
