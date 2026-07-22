@@ -36,6 +36,9 @@ type AssistantBootstrap = {
   approvals: Array<{ approval_id: string; action: string; target: string; expected_result: string; status: string }>;
   conversationId: string | null;
   messages: Array<{ message_id: string; role: "user" | "assistant"; content: string; metadata?: { tool?: string; approval?: AssistantApproval } }>;
+  avaContext?: { revision: string; freshness: "fresh" | "stale" | "fallback"; sourceAgeMs: number };
+  sourceHealth?: Array<{ source: string; status: string; lastError: string | null; ageMs: number | null }>;
+  executionBudget?: { dailyLimit: number; reservedExecutions: number; remainingExecutions: number; stopEngaged: boolean; categories: Record<string, number> };
 };
 
 const ORB_SIZE = 62;
@@ -158,6 +161,9 @@ export function AvaAssistant() {
       dashboardContext: data.dashboardContext ?? current.dashboardContext,
       trendContext: data.trendContext ?? current.trendContext,
       capabilitySummary: data.capabilitySummary ?? current.capabilitySummary,
+      avaContext: data.avaContext ?? current.avaContext,
+      sourceHealth: data.sourceHealth ?? current.sourceHealth,
+      executionBudget: data.executionBudget ?? current.executionBudget,
     } : null);
     setBusy(false);
   }
@@ -210,6 +216,7 @@ export function AvaAssistant() {
           <span><CircleDot size={12} /> {context?.pageLabel || "Dashboard"}</span>
           <span><ShieldCheck size={12} /> {pendingApprovals} pending approvals</span>
           <span><Sparkles size={12} /> {trends?.snapshotCount ?? 0} memory snapshots</span>
+          <span><CircleDot size={12} /> {bootstrap?.avaContext?.freshness || "loading"} Core context</span>
         </div>
         <div className="assistant-context-strip" aria-label="Ava context and tool capabilities">
           <span>Ready {groups.ready.length}</span>
@@ -219,6 +226,7 @@ export function AvaAssistant() {
           {context && <span>Tasks {context.taskSummary.total}</span>}
           {context && <span>Overdue {context.taskSummary.overdue}</span>}
           {context && <span>Issues {context.automationSummary.openIssues}</span>}
+          {bootstrap?.executionBudget && <span>n8n budget {bootstrap.executionBudget.remainingExecutions}/{bootstrap.executionBudget.dailyLimit}</span>}
         </div>
         <nav className="assistant-tabs">
           <button type="button" className={activeTab === "chat" ? "active" : ""} onClick={() => setActiveTab("chat")}><Bot size={14} /> Assistant</button>
@@ -265,6 +273,7 @@ export function AvaAssistant() {
             <div><strong>Blocked</strong><span>{groups.blocked.map((tool) => tool.name).join(", ") || "None"}</span></div>
           </div>
           <div className="assistant-section-title"><span>Integration inventory</span><span>{bootstrap?.integrations.length ?? 0}</span></div>
+          {bootstrap?.sourceHealth?.map((source) => <div className="integration-item" key={source.source}><div><strong>{source.source}</strong><span>{source.lastError || (source.ageMs == null ? "No freshness data" : `Updated ${Math.round(source.ageMs / 60000)}m ago`)}</span></div><span className={`integration-status ${source.status}`}>{source.status}</span></div>)}
           {bootstrap?.integrations.map((integration) => <div className="integration-item" key={integration.key}><div><strong>{integration.name}</strong><span>{integration.category} · {integration.permission}</span></div><span className={`integration-status ${integration.status.toLowerCase().replaceAll(" ", "-")}`}>{integration.credentialsReady ? "Connected" : integration.status}</span></div>)}
           <button type="button" className="assistant-collapse" onClick={() => setActiveTab("chat")}><ChevronDown size={14} /> Return to assistant</button>
         </div>}

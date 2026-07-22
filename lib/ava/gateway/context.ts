@@ -4,6 +4,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getAvaDailyContext } from "@/lib/ava/daily-context";
 import type { AvaContextEnvelope, AvaContextLayer } from "@/lib/ava/gateway/types";
 import type { AvaConversationMessage } from "@/lib/ava/gateway/storage";
+import { avaCapabilityHealth } from "@/lib/ava/gateway/capabilities";
+import { dailySourceHealth } from "@/lib/ava/gateway/health";
+import { getAvaExecutionBudget } from "@/lib/ava/gateway/execution-budget";
 
 type MemoryRow = {
   scope: string;
@@ -86,6 +89,9 @@ export async function compileAvaContext({
   ]);
 
   const context = daily.context;
+  const capabilityHealth = avaCapabilityHealth();
+  const sources = dailySourceHealth(daily);
+  const executionBudget = await getAvaExecutionBudget({ supabase, ownerId, usage: daily.usage });
   const cognitive = context.raw.cognitiveState;
   const memoryRows = (memories || []) as MemoryRow[];
   const terms = queryTerms(query);
@@ -100,7 +106,7 @@ export async function compileAvaContext({
     const score = relevance(`${a.type} ${a.name} ${a.currentState}`, terms) - relevance(`${b.type} ${b.name} ${b.currentState}`, terms);
     return score || b.priority - a.priority;
   }).slice(0, 8);
-  const sourceLines = Object.values(cognitive.awareness.sources).map((source) => `${source.source}: ${source.status}, updated ${source.updatedAt}`);
+  const sourceLines = sources.map((source) => `${source.source}: ${source.status}, age ${source.ageMs ?? "unknown"}ms${source.lastError ? `, error ${source.lastError}` : ""}`);
   const approvalLines = (approvals || []).map((approval) => `${approval.action} for ${approval.target}; expires ${approval.expires_at || "not set"}`);
   const toolLines = (recentTools || []).map((tool) => `${tool.tool_name}: ${tool.status} - ${compact(tool.output_summary, 180)}`);
 
@@ -141,7 +147,9 @@ export async function compileAvaContext({
       ...approvalLines,
     ]),
     layer(8, "Capabilities and outcomes", [
-      ...capabilities.filter((capability) => capability.status === "available").map((capability) => `${capability.name}: ${capability.permission}`),
+      ...capabilities.map((capability) => `${capability.name}: ${capability.permission}`),
+      ...capabilityHealth.filter((item) => !item.available).slice(0, 8).map((item) => `${item.name}: unavailable - ${item.reason}`),
+      `n8n context budget: ${executionBudget.remainingExecutions} of ${executionBudget.dailyLimit} executions remain; stop ${executionBudget.stopEngaged ? "engaged" : "clear"}.`,
       ...toolLines,
     ]),
   ];
@@ -162,6 +170,9 @@ export async function compileAvaContext({
     freshness: daily.freshness,
     sourceAgeMs: daily.snapshotAgeMs,
     criticalNotice,
+    sources,
+    capabilityHealth,
+    executionBudget,
     layers,
     promptContext,
   };

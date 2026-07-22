@@ -13,8 +13,46 @@ export type AvaContextEnvelope = {
   freshness: "fresh" | "stale" | "fallback";
   sourceAgeMs: number;
   criticalNotice: string | null;
+  sources: AvaSourceHealth[];
+  capabilityHealth: AvaCapabilityHealth[];
+  executionBudget: AvaExecutionBudget;
   layers: AvaContextLayer[];
   promptContext: string;
+};
+
+export type AvaSourceHealth = {
+  source: string;
+  status: "connected" | "stale" | "fallback" | "unavailable";
+  lastSuccessAt: string | null;
+  lastError: string | null;
+  ageMs: number | null;
+};
+
+export type AvaCapabilityHealth = {
+  name: string;
+  integration: string;
+  permission: PermissionLevel;
+  available: boolean;
+  credentialReady: boolean;
+  handlerReady: boolean;
+  reason: string | null;
+  checkedAt: string;
+};
+
+export type AvaExecutionBudget = {
+  centralDate: string;
+  dailyLimit: number;
+  reservedExecutions: number;
+  remainingExecutions: number;
+  stopEngaged: boolean;
+  categories: {
+    scheduledContext: number;
+    retry: number;
+    explicitRead: number;
+    approvedAction: number;
+    monitoring: number;
+    unrelated: number;
+  };
 };
 
 export type AvaJsonSchema = {

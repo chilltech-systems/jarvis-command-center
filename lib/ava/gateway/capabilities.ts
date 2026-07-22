@@ -1,4 +1,5 @@
 import "server-only";
+import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getAvaDailyContext } from "@/lib/ava/daily-context";
 import type { AvaCapabilityDefinition, AvaRealtimeTool, AvaToolResult } from "@/lib/ava/gateway/types";
@@ -11,6 +12,7 @@ import {
   formatTodoistTasks,
 } from "@/lib/jarvis/tool-hub";
 import { getAvaRuntime } from "@/lib/ava/runtime";
+import { capabilityHealth, capabilityHealthSnapshot } from "@/lib/ava/gateway/health";
 
 const emptyObject = { type: "object", properties: {}, additionalProperties: false } as const;
 
@@ -26,17 +28,17 @@ export const AVA_CAPABILITIES: AvaCapabilityDefinition[] = [
   { name: "ava_runtime_status", description: "Get Ava runtime lifecycle, health, scheduler, memory, and cognition status.", category: "Runtime", permission: "read_only", status: "available", integration: "ava_runtime", parameters: emptyObject },
   { name: "ava_perception_current", description: "Get read-only perception adapter health and the latest observation, including Home Assistant when connected.", category: "Perception", permission: "read_only", status: "available", integration: "home_assistant", parameters: emptyObject },
   { name: "get_n8n_status", description: "Summarize n8n workflow health, executions, errors, and open issues.", category: "Automation", permission: "read_only", status: "available", integration: "n8n", parameters: emptyObject },
-  { name: "todoist_list", description: "List Todoist tasks matching a filter.", category: "Tasks", permission: "read_only", status: "available", integration: "todoist", toolHubTool: "todoist.list", parameters: { type: "object", properties: { filter: { type: "string", description: "Todoist filter; defaults to today or overdue." } }, additionalProperties: false } },
+  { name: "todoist_list", description: "List Todoist tasks matching a filter. Reuse a five-minute result unless the user explicitly asks to check again.", category: "Tasks", permission: "read_only", status: "available", integration: "todoist", toolHubTool: "todoist.list", parameters: { type: "object", properties: { filter: { type: "string", description: "Todoist filter; defaults to today or overdue." }, refresh: { type: "boolean", description: "Set true only when the user explicitly asks to check again." } }, additionalProperties: false } },
   { name: "todoist_create", description: "Prepare a Todoist task for explicit approval.", category: "Tasks", permission: "requires_approval", status: "available", integration: "todoist", approvalAction: "Create Todoist task", toolHubTool: "todoist.create", parameters: { type: "object", properties: { task: { type: "string" }, due: { type: "string" }, description: { type: "string" }, priority: { type: "number" } }, required: ["task"], additionalProperties: false } },
   { name: "todoist_complete", description: "Prepare completion of a Todoist task for explicit approval.", category: "Tasks", permission: "requires_approval", status: "available", integration: "todoist", approvalAction: "Complete Todoist task", toolHubTool: "todoist.complete", parameters: { type: "object", properties: { task_id: { type: "string" }, task_name: { type: "string" } }, required: ["task_id"], additionalProperties: false } },
-  { name: "gmail_search", description: "Search and summarize connected Gmail messages.", category: "Communication", permission: "read_only", status: "available", integration: "gmail", toolHubTool: "gmail.search", parameters: { type: "object", properties: { query: { type: "string" }, limit: { type: "number" } }, required: ["query"], additionalProperties: false } },
+  { name: "gmail_search", description: "Search and summarize connected Gmail messages. Reuse a five-minute result unless the user explicitly asks to check again.", category: "Communication", permission: "read_only", status: "available", integration: "gmail", toolHubTool: "gmail.search", parameters: { type: "object", properties: { query: { type: "string" }, limit: { type: "number" }, refresh: { type: "boolean", description: "Set true only when the user explicitly asks to check again." } }, required: ["query"], additionalProperties: false } },
   { name: "email_draft", description: "Prepare email copy without sending it.", category: "Communication", permission: "draft", status: "available", integration: "gmail", parameters: { type: "object", properties: { to: { type: "string" }, subject: { type: "string" }, body: { type: "string" } }, required: ["to", "subject", "body"], additionalProperties: false } },
   { name: "email_send", description: "Prepare a Gmail message for explicit approval and sending.", category: "Communication", permission: "requires_approval", status: "available", integration: "gmail", approvalAction: "Send Gmail message", toolHubTool: "gmail.send", parameters: { type: "object", properties: { to: { type: "string" }, subject: { type: "string" }, body: { type: "string" } }, required: ["to", "subject", "body"], additionalProperties: false } },
-  { name: "calendar_list", description: "List connected Google Calendar events.", category: "Scheduling", permission: "read_only", status: "available", integration: "google_calendar", toolHubTool: "calendar.list", parameters: { type: "object", properties: { start: { type: "string" }, end: { type: "string" } }, additionalProperties: false } },
-  { name: "calendar_draft", description: "Prepare calendar event details without creating it.", category: "Scheduling", permission: "draft", status: "available", integration: "google_calendar", parameters: { type: "object", properties: { title: { type: "string" }, start: { type: "string" }, end: { type: "string" }, notes: { type: "string" } }, required: ["title", "start", "end"], additionalProperties: false } },
-  { name: "calendar_create", description: "Prepare a calendar event for explicit approval and creation.", category: "Scheduling", permission: "requires_approval", status: "available", integration: "google_calendar", approvalAction: "Create calendar event", toolHubTool: "calendar.create", parameters: { type: "object", properties: { title: { type: "string" }, start: { type: "string" }, end: { type: "string" }, notes: { type: "string" } }, required: ["title", "start", "end"], additionalProperties: false } },
-  { name: "sheets_read", description: "Read a Google Sheet range.", category: "Business Intelligence", permission: "read_only", status: "available", integration: "business_data", toolHubTool: "sheets.read", parameters: { type: "object", properties: { sheetId: { type: "string" }, range: { type: "string" } }, required: ["sheetId", "range"], additionalProperties: false } },
-  { name: "sheets_write", description: "Prepare a Google Sheet write for explicit approval.", category: "Business Intelligence", permission: "requires_approval", status: "available", integration: "business_data", approvalAction: "Write Google Sheet range", toolHubTool: "sheets.write", parameters: { type: "object", properties: { sheetId: { type: "string" }, range: { type: "string" }, values_json: { type: "string", description: "JSON array of row arrays." } }, required: ["sheetId", "range", "values_json"], additionalProperties: false } },
+  { name: "calendar_list", description: "List connected Google Calendar events.", category: "Scheduling", permission: "read_only", status: "planned", integration: "google_calendar", toolHubTool: "calendar.list", parameters: { type: "object", properties: { start: { type: "string" }, end: { type: "string" } }, additionalProperties: false } },
+  { name: "calendar_draft", description: "Prepare calendar event details without creating it.", category: "Scheduling", permission: "draft", status: "planned", integration: "google_calendar", parameters: { type: "object", properties: { title: { type: "string" }, start: { type: "string" }, end: { type: "string" }, notes: { type: "string" } }, required: ["title", "start", "end"], additionalProperties: false } },
+  { name: "calendar_create", description: "Prepare a calendar event for explicit approval and creation.", category: "Scheduling", permission: "requires_approval", status: "planned", integration: "google_calendar", approvalAction: "Create calendar event", toolHubTool: "calendar.create", parameters: { type: "object", properties: { title: { type: "string" }, start: { type: "string" }, end: { type: "string" }, notes: { type: "string" } }, required: ["title", "start", "end"], additionalProperties: false } },
+  { name: "sheets_read", description: "Read a Google Sheet range.", category: "Business Intelligence", permission: "read_only", status: "planned", integration: "business_data", toolHubTool: "sheets.read", parameters: { type: "object", properties: { sheetId: { type: "string" }, range: { type: "string" } }, required: ["sheetId", "range"], additionalProperties: false } },
+  { name: "sheets_write", description: "Prepare a Google Sheet write for explicit approval.", category: "Business Intelligence", permission: "requires_approval", status: "planned", integration: "business_data", approvalAction: "Write Google Sheet range", toolHubTool: "sheets.write", parameters: { type: "object", properties: { sheetId: { type: "string" }, range: { type: "string" }, values_json: { type: "string", description: "JSON array of row arrays." } }, required: ["sheetId", "range", "values_json"], additionalProperties: false } },
   { name: "codex_task_create", description: "Prepare a Codex implementation task for explicit approval and local queueing.", category: "Development", permission: "requires_approval", status: "available", integration: "codex", approvalAction: "Queue Codex task", parameters: { type: "object", properties: { objective: { type: "string" } }, required: ["objective"], additionalProperties: false } },
   { name: "n8n_workflow_run", description: "Trigger an approved n8n workflow.", category: "Automation", permission: "requires_approval", status: "planned", integration: "n8n", approvalAction: "Run n8n workflow", parameters: { type: "object", properties: { workflow_id: { type: "string" }, input_json: { type: "string" } }, required: ["workflow_id"], additionalProperties: false } },
   { name: "slack_send", description: "Send an approved Slack message.", category: "Communication", permission: "requires_approval", status: "planned", integration: "slack", approvalAction: "Send Slack message", parameters: { type: "object", properties: { channel: { type: "string" }, message: { type: "string" } }, required: ["channel", "message"], additionalProperties: false } },
@@ -44,11 +46,29 @@ export const AVA_CAPABILITIES: AvaCapabilityDefinition[] = [
 ];
 
 export function liveAvaCapabilities() {
-  return AVA_CAPABILITIES.filter((capability) => capability.status === "available");
+  return AVA_CAPABILITIES.filter((definition) => capabilityHealth(definition).available);
 }
 
 export function avaRealtimeTools(): AvaRealtimeTool[] {
   return liveAvaCapabilities().map(({ name, description, parameters }) => ({ type: "function", name, description, parameters }));
+}
+
+export function avaCapabilityHealth() {
+  return capabilityHealthSnapshot(AVA_CAPABILITIES);
+}
+
+function stableValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stableValue);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(Object.entries(value as Record<string, unknown>)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, child]) => [key, stableValue(child)]));
+}
+
+function readCacheKey(name: string, parameters: Record<string, unknown>) {
+  const normalized = { ...parameters };
+  delete normalized.refresh;
+  return createHash("sha256").update(JSON.stringify([name, stableValue(normalized)])).digest("hex").slice(0, 32);
 }
 
 function parameterText(parameters: Record<string, unknown>, key: string) {
@@ -139,6 +159,7 @@ async function executeReadCapability({
 
   if (capability.toolHubTool) {
     const normalized = { ...parameters };
+    delete normalized.refresh;
     if (capability.name === "todoist_list" && !normalized.filter) normalized.filter = "today | overdue";
     if (capability.name === "gmail_search" && !normalized.limit) normalized.limit = 10;
     if (capability.name === "sheets_write" && typeof normalized.values_json === "string") {
@@ -176,7 +197,8 @@ export async function runAvaCapability({
   parameters: Record<string, unknown>;
 }): Promise<AvaToolResult> {
   const capability = AVA_CAPABILITIES.find((item) => item.name === name);
-  if (!capability || capability.status !== "available") return { status: "unavailable", message: `${name} is not available.` };
+  const health = capability ? capabilityHealth(capability) : null;
+  if (!capability || !health?.available) return { status: "unavailable", message: health?.reason || `${name} is not available.` };
 
   const { data: existing } = await supabase.from("jarvis_tool_calls")
     .select("tool_call_id,status,output_summary")
@@ -186,8 +208,42 @@ export async function runAvaCapability({
     .maybeSingle();
   if (existing) return { status: existing.status === "complete" ? "complete" : existing.status === "approval_required" ? "approval_required" : "failed", message: (existing.output_summary as { response?: string } | null)?.response || "This tool call was already processed.", toolCallId: existing.tool_call_id };
 
+  const cacheableRead = capability.permission === "read_only" && Boolean(capability.toolHubTool);
+  const cacheKey = cacheableRead ? readCacheKey(capability.name, parameters) : null;
+  if (cacheKey && parameters.refresh !== true) {
+    const cutoff = new Date(Date.now() - 5 * 60_000).toISOString();
+    const { data: cached } = await supabase.from("jarvis_tool_calls")
+      .select("tool_call_id,output_summary,completed_at")
+      .eq("owner_id", ownerId)
+      .eq("tool_name", capability.name)
+      .eq("status", "complete")
+      .contains("input_summary", { cacheKey })
+      .gte("completed_at", cutoff)
+      .order("completed_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const cachedOutput = cached?.output_summary as { response?: string; data?: unknown } | null;
+    if (cached && cachedOutput?.response) {
+      const { data: cacheCall } = await supabase.from("jarvis_tool_calls").insert({
+        conversation_id: conversationId,
+        owner_id: ownerId,
+        tool_name: capability.name,
+        permission_level: capability.permission,
+        status: "complete",
+        input_summary: { gatewayCallId: callId, parameters, cacheKey, cacheHit: true, cachedToolCallId: cached.tool_call_id, n8nExecutionCategory: "explicit_read" },
+        output_summary: { ...cachedOutput, cacheHit: true },
+        completed_at: new Date().toISOString(),
+      }).select("tool_call_id").single();
+      await supabase.from("jarvis_activity_log").insert({ owner_id: ownerId, conversation_id: conversationId, tool_call_id: cacheCall?.tool_call_id ?? null, activity_type: `${capability.name}.cache_hit`, summary: `Reused a recent ${capability.name} result without an n8n execution.`, status: "complete", metadata: { cachedToolCallId: cached.tool_call_id } });
+      return { status: "complete", message: cachedOutput.response, data: cachedOutput.data, toolCallId: cacheCall?.tool_call_id ?? cached.tool_call_id };
+    }
+  }
+
   const inputSummary: Record<string, unknown> = { gatewayCallId: callId, parameters };
   if (capability.toolHubTool) inputSummary.toolHubTool = capability.toolHubTool;
+  if (cacheKey) inputSummary.cacheKey = cacheKey;
+  if (cacheableRead) inputSummary.n8nExecutionCategory = "explicit_read";
+  if (capability.permission === "requires_approval" && capability.toolHubTool) inputSummary.n8nExecutionCategory = "approved_action";
   if (capability.name === "codex_task_create") inputSummary.codexPackage = createCodexPromptPackage(parameterText(parameters, "objective"));
   const approvalRequired = capability.permission === "requires_approval";
   const { data: toolCall, error } = await supabase.from("jarvis_tool_calls").insert({

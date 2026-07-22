@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseGatewayJson, requireAvaGateway } from "@/lib/ava/gateway/auth";
-import { AVA_CAPABILITIES } from "@/lib/ava/gateway/capabilities";
+import { liveAvaCapabilities } from "@/lib/ava/gateway/capabilities";
 import { compileAvaContext } from "@/lib/ava/gateway/context";
 import { buildAvaRealtimeInstructions } from "@/lib/ava/gateway/instructions";
 import { getAvaConversationMessages, recordAvaMessage } from "@/lib/ava/gateway/storage";
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     if (!conversation) return NextResponse.json({ error: "Conversation not found." }, { status: 404 });
     const message = await recordAvaMessage({ supabase, ownerId: auth.identity.ownerId, conversationId, role, content, metadata: { interface: "nebula", modality, realtimeItemId: typeof body.realtimeItemId === "string" ? body.realtimeItemId : null } });
     const messages = await getAvaConversationMessages({ supabase, ownerId: auth.identity.ownerId, conversationId, limit: 20 });
-    const context = await compileAvaContext({ supabase, ownerId: auth.identity.ownerId, ownerEmail: auth.identity.email, conversationId, messages, capabilities: AVA_CAPABILITIES, query: content });
+    const context = await compileAvaContext({ supabase, ownerId: auth.identity.ownerId, ownerEmail: auth.identity.email, conversationId, messages, capabilities: liveAvaCapabilities(), query: content });
     return NextResponse.json({ messageId: message?.message_id ?? null, context, instructions: buildAvaRealtimeInstructions(context) }, { headers: { "Cache-Control": "private, no-store, max-age=0" } });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Ava turn failed." }, { status: 500 });

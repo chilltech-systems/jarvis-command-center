@@ -22,8 +22,30 @@ import {
   type TodoistTask,
 } from "@/lib/jarvis/tool-hub";
 import type { AssistantResponse } from "@/lib/jarvis/types";
+import { avaCapabilityHealth, liveAvaCapabilities } from "@/lib/ava/gateway/capabilities";
+import { compileAvaContext } from "@/lib/ava/gateway/context";
+import { ensureAvaConversation, getAvaConversationMessages } from "@/lib/ava/gateway/storage";
 
 const MAX_MESSAGE_LENGTH = 4000;
+
+const LEGACY_CAPABILITY_NAMES: Record<string, string> = {
+  get_n8n_status: "get_n8n_status",
+  "todoist.list": "todoist_list",
+  "todoist.create": "todoist_create",
+  "todoist.complete": "todoist_complete",
+  get_recent_emails: "gmail_search",
+  draft_email: "email_draft",
+  send_email: "email_send",
+  get_calendar_events: "calendar_list",
+  draft_calendar_event: "calendar_draft",
+  create_calendar_event: "calendar_create",
+  read_google_sheet: "sheets_read",
+  write_google_sheet: "sheets_write",
+  create_codex_task: "codex_task_create",
+  run_n8n_workflow: "n8n_workflow_run",
+  send_slack_message: "slack_send",
+  send_sms: "sms_send",
+};
 
 function parseAfter(message: string, patterns: RegExp[]) {
   return patterns.map((pattern) => message.match(pattern)?.[1]?.trim()).find(Boolean) || "";
@@ -71,28 +93,32 @@ export async function GET(request: Request) {
   if (!authorized || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const dashboardPath = new URL(request.url).searchParams.get("path") || "/";
 
-  const [{ data: activity }, { data: approvals }, { data: conversation }] = await Promise.all([
+  const [{ data: activity }, { data: approvals }] = await Promise.all([
     supabase.from("jarvis_activity_log").select("*").order("created_at", { ascending: false }).limit(20),
     supabase.from("jarvis_approvals").select("*").eq("status", "pending").order("created_at", { ascending: false }).limit(10),
-    supabase.from("jarvis_conversations").select("conversation_id").eq("status", "active").order("updated_at", { ascending: false }).limit(1).maybeSingle(),
   ]);
-  const { data: messages } = conversation?.conversation_id
-    ? await supabase.from("jarvis_messages").select("message_id, role, content, metadata").eq("conversation_id", conversation.conversation_id).order("created_at").limit(100)
-    : { data: [] };
+  const conversation = await ensureAvaConversation({ supabase, ownerId: user.id });
+  const messages = await getAvaConversationMessages({ supabase, ownerId: user.id, conversationId: conversation.conversation_id, limit: 100 });
+  const liveCapabilities = liveAvaCapabilities();
+  const unifiedContext = await compileAvaContext({ supabase, ownerId: user.id, ownerEmail: user.email || "cody", conversationId: conversation.conversation_id, messages, capabilities: liveCapabilities });
   const dashboardContext = await buildDashboardContext({ supabase, ownerId: user.id, path: dashboardPath });
   await upsertDailyDashboardSnapshot({ supabase, ownerId: user.id, context: dashboardContext });
   const trendContext = await buildTrendContext({ supabase, ownerId: user.id });
 
   return NextResponse.json({
-    tools: JARVIS_TOOLS,
+    tools: liveCapabilities,
+    capabilityHealth: avaCapabilityHealth(),
+    avaContext: unifiedContext,
+    sourceHealth: unifiedContext.sources,
+    executionBudget: unifiedContext.executionBudget,
     integrations: discoverIntegrationCredentials(),
     dashboardContext,
     trendContext,
     capabilitySummary: dashboardContext.capabilitySummary,
     activity: activity ?? [],
     approvals: approvals ?? [],
-    conversationId: conversation?.conversation_id ?? null,
-    messages: messages ?? [],
+    conversationId: conversation.conversation_id,
+    messages,
   });
 }
 
@@ -109,10 +135,20 @@ export async function POST(request: Request) {
   const { data: conversationHistory } = requestedConversationId
     ? await supabase.from("jarvis_messages").select("role, content").eq("conversation_id", requestedConversationId).order("created_at").limit(20)
     : { data: [] };
-  const tool = findToolForMessage(message);
+  const requestedTool = findToolForMessage(message);
+  const capabilityState = requestedTool ? avaCapabilityHealth().find((item) => item.name === LEGACY_CAPABILITY_NAMES[requestedTool.name]) : null;
+  const tool = requestedTool && capabilityState && !capabilityState.available
+    ? { ...requestedTool, status: "planned" as const }
+    : requestedTool;
   const dashboardContext = await buildDashboardContext({ supabase, ownerId: user.id, path: dashboardPath });
   await upsertDailyDashboardSnapshot({ supabase, ownerId: user.id, context: dashboardContext });
   const trendContext = await buildTrendContext({ supabase, ownerId: user.id });
+  const avaMessages = requestedConversationId
+    ? await getAvaConversationMessages({ supabase, ownerId: user.id, conversationId: requestedConversationId, limit: 20 })
+    : [];
+  const avaContext = requestedConversationId
+    ? await compileAvaContext({ supabase, ownerId: user.id, ownerEmail: user.email || "cody", conversationId: requestedConversationId, messages: avaMessages, capabilities: liveAvaCapabilities(), query: message })
+    : null;
   let response: AssistantResponse = {
     message: "I recorded that request. I can route it once the matching capability is connected.",
     activity: "I received an assistant request",
@@ -384,6 +420,7 @@ export async function POST(request: Request) {
         tools: JARVIS_TOOLS,
         dashboardContext,
         trendContext,
+        avaContext,
       });
       if (modelResponse) {
         response = {
@@ -485,5 +522,8 @@ export async function POST(request: Request) {
     dashboardContext,
     trendContext,
     capabilitySummary: dashboardContext.capabilitySummary,
+    avaContext,
+    sourceHealth: avaContext?.sources ?? [],
+    executionBudget: avaContext?.executionBudget ?? null,
   });
 }

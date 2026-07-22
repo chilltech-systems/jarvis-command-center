@@ -7,10 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "validate": "node scripts/validate-n8n-workflow-json.js && node --experimental-strip-types scripts/validate-ava-daily-context.mjs && node scripts/validate-execution-collector.js && node scripts/validate-business-pulse-variants.js && node scripts/validate-hud-auth.js && node scripts/validate-hud-timezone.js && node scripts/validate-jarvis-assistant-foundation.js && node scripts/validate-ava-runtime-foundation.js && node scripts/validate-ava-second-brain-core.js && node scripts/validate-ava-nebula-gateway.js && node --no-warnings scripts/validate-ava-nebula-cinematic.js",
+    "validate": "node scripts/validate-n8n-workflow-json.js && node --experimental-strip-types scripts/validate-ava-daily-context.mjs && node scripts/validate-execution-collector.js && node scripts/validate-business-pulse-variants.js && node scripts/validate-hud-auth.js && node scripts/validate-hud-timezone.js && node scripts/validate-jarvis-assistant-foundation.js && node scripts/validate-ava-runtime-foundation.js && node scripts/validate-ava-second-brain-core.js && node scripts/validate-ava-nebula-gateway.js && node scripts/validate-ava-unified-system.js && node --no-warnings scripts/validate-ava-nebula-cinematic.js",
     "validate:second-brain": "node scripts/validate-ava-second-brain-core.js",
     "validate:nebula": "node --no-warnings scripts/validate-ava-nebula-cinematic.js",
-    "validate:nebula-gateway": "node scripts/validate-ava-nebula-gateway.js"
+    "validate:nebula-gateway": "node scripts/validate-ava-nebula-gateway.js",
+    "validate:unified": "node scripts/validate-ava-unified-system.js"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",
