@@ -36,6 +36,7 @@ export async function proxy(request: NextRequest) {
     || request.nextUrl.pathname.startsWith("/auth")
     || request.nextUrl.pathname.startsWith("/unauthorized")
     || request.nextUrl.pathname === "/api/ava/nebula-feed"
+    || request.nextUrl.pathname === "/api/ava/context/refresh"
     || request.nextUrl.pathname.startsWith("/api/ava/gateway/")
     || isLocalDevPreview;
 

@@ -35,4 +35,9 @@ for (const marker of ["compileAvaContext", "ensureAvaConversation", "sourceHealt
   if (!assistant.includes(marker)) throw new Error(`HUD unification marker missing: ${marker}`);
 }
 
+const proxy = read("proxy.ts");
+if (!proxy.includes('request.nextUrl.pathname === "/api/ava/context/refresh"')) {
+  throw new Error("The protected automatic refresh route must reach its bearer-token validator.");
+}
+
 console.log("AVA_UNIFIED_SYSTEM_OK");
